@@ -403,20 +403,7 @@ export const api = {
             `/teams/${teamId}/expenses`,
         );
         const list = data.expenses ?? [];
-        const withCharges = await Promise.all(
-            list.map(async (summary) => {
-                const id = String(summary.id ?? "");
-                try {
-                    const one = await v1Fetch<{
-                        expense: Record<string, unknown>;
-                    }>("GET", `/expenses/${id}`);
-                    return mapExpenseFromApi(one.expense);
-                } catch {
-                    return mapExpenseFromApi(summary);
-                }
-            }),
-        );
-        return withCharges;
+        return list.map((e) => mapExpenseFromApi(e));
     },
 
     getExpense: async (id: string): Promise<Expense | null> => {

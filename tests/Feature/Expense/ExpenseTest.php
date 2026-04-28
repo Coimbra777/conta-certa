@@ -322,4 +322,58 @@ class ExpenseTest extends TestCase
 
         $patch->assertStatus(403);
     }
+
+    public function test_team_expenses_index_returns_charges_with_members(): void
+    {
+        [$team, $admin] = $this->createTeamWithMembers(2);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload([
+                'total_amount' => 40.00,
+            ]));
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/v1/teams/{$team->id}/expenses");
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'message',
+                'data' => [
+                    'expenses' => [
+                        '*' => [
+                            'id',
+                            'description',
+                            'charges' => [
+                                '*' => [
+                                    'id',
+                                    'amount',
+                                    'status',
+                                    'member' => ['name', 'phone'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+
+        $expense = $response->json('data.expenses.0');
+        $this->assertArrayNotHasKey('manage_token', $expense);
+        $this->assertCount(2, $expense['charges']);
+        $this->assertNotEmpty($expense['charges'][0]['member']['name']);
+    }
+
+    public function test_team_expenses_index_forbidden_for_non_member(): void
+    {
+        [$team, $admin] = $this->createTeamWithMembers(2);
+        $stranger = User::factory()->create();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload());
+
+        $response = $this->actingAs($stranger, 'sanctum')
+            ->getJson("/api/v1/teams/{$team->id}/expenses");
+
+        $response->assertStatus(403);
+    }
 }

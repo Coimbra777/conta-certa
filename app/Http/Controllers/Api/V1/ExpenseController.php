@@ -46,11 +46,18 @@ class ExpenseController extends Controller
             throw new HttpApiException('Forbidden.', 'FORBIDDEN', 403);
         }
 
-        $expenses = $team->expenses()->latest()->get();
+        $expenses = $team->expenses()
+            ->with([
+                'charges.teamMember',
+                'charges.paymentProofs',
+                'team.members',
+            ])
+            ->latest()
+            ->get();
 
         return ApiResponse::success([
             'expenses' => ExpenseResource::collection($expenses)->resolve(),
-        ]);
+        ], 'Despesas carregadas com sucesso.');
     }
 
     public function show(Team $team, Expense $expense): JsonResponse

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,6 +10,7 @@ class ExpenseResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        /** @var User|null $user */
         $user = $request->user();
 
         return [
@@ -24,12 +26,25 @@ class ExpenseResource extends JsonResource
             'public_url' => $this->public_hash ? $this->getPublicUrl() : null,
             'charges' => ChargeResource::collection($this->whenLoaded('charges')),
             'created_at' => $this->created_at,
-            'can_manage' => $user && $this->team
-                ? $this->team->members()
-                    ->where('user_id', $user->id)
-                    ->where('role', 'admin')
-                    ->exists()
-                : false,
+            'can_manage' => $this->resolveCanManage($user),
         ];
+    }
+
+    private function resolveCanManage(?User $user): bool
+    {
+        if (! $user || ! $this->team) {
+            return false;
+        }
+
+        if ($this->team->relationLoaded('members')) {
+            return $this->team->members->contains(
+                fn ($m) => (int) $m->user_id === (int) $user->id && $m->role === 'admin'
+            );
+        }
+
+        return $this->team->members()
+            ->where('user_id', $user->id)
+            ->where('role', 'admin')
+            ->exists();
     }
 }
