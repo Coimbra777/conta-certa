@@ -4,15 +4,35 @@ Backend **Laravel 12** expõe API REST em `/api/v1`. O frontend **React + Vite**
 
 ## Requisitos
 
-- PHP 8.2+, Composer, extensões usuais do Laravel (incl. dom, xml para CI)
+- PHP 8.2+, Composer, extensões usuais do Laravel (`pdo_mysql`, dom, xml para CI; `pdo_sqlite` só para PHPUnit)
+- MySQL 8.x (ou MariaDB compatível) para desenvolvimento e produção
 - Node.js 20+ (frontend)
+
+## Banco de dados (MySQL)
+
+O projeto usa **MySQL** como banco principal (`utf8mb4` / `utf8mb4_unicode_ci` em `config/database.php`).
+
+1. Crie o banco (exemplo):
+
+   ```sql
+   CREATE DATABASE conta_facil CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+2. Ajuste `DB_*` no `.env` (veja `.env.example`).
+
+3. Rode as migrations: `php artisan migrate`
+
+**Docker Compose:** o serviço `db` expõe MySQL na porta **3300** no host (`3300:3306`). Dentro da rede Docker, use `DB_HOST=db` e `DB_PORT=3306`. No host (artisan fora do container), use `DB_HOST=127.0.0.1` e `DB_PORT=3300`. Alinhe `DB_DATABASE`, `DB_USERNAME` e `DB_PASSWORD` com as variáveis do `docker-compose.yml`.
+
+Se você mudar `DB_DATABASE` depois que o volume `.docker/mysql/dbdata` já foi criado, o MySQL pode ainda não ter esse schema ou o usuário da aplicação pode não ter privilégio nele. Crie o banco e conceda acesso (como `root` no container `db`) ou recrie o volume após ajustar o `.env`.
+
+**Testes:** `phpunit.xml` força `DB_CONNECTION=sqlite` e `DB_DATABASE=:memory:` — não é necessário MySQL para `php artisan test`.
 
 ## Backend
 
 ```bash
 cp .env.example .env
 php artisan key:generate
-touch database/database.sqlite   # se usar SQLite
 php artisan migrate
 php artisan serve
 ```

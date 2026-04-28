@@ -17,6 +17,7 @@
             <directory>app</directory>
         </include>
     </source>
+    <!-- Testes: SQLite em memória (rápido, sem MySQL). App em dev/prod usa MySQL (.env). -->
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
