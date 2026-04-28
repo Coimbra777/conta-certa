@@ -7,11 +7,12 @@ use App\Actions\Charge\RejectChargeAction;
 use App\Actions\Charge\ValidateChargeAction;
 use App\Exceptions\HttpApiException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\RejectChargeRequest;
 use App\Http\Resources\ChargeResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Charge;
+use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,7 +30,7 @@ class ChargeValidationController extends Controller
         ], 'Pagamento validado.');
     }
 
-    public function reject(Request $request, Charge $charge, RejectChargeAction $rejectChargeAction): JsonResponse
+    public function reject(RejectChargeRequest $request, Charge $charge, RejectChargeAction $rejectChargeAction): JsonResponse
     {
         $this->authorizeAdmin($charge);
 
@@ -53,7 +54,9 @@ class ChargeValidationController extends Controller
             return ApiResponse::error('No proof found.', 'NOT_FOUND', 404);
         }
 
-        return Storage::disk('local')->download($proof->file_path, $proof->original_filename);
+        $downloadName = SafeDownloadFilename::forProof((string) $proof->mime_type, $proof->original_filename);
+
+        return Storage::disk('local')->download($proof->file_path, $downloadName);
     }
 
     /**

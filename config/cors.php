@@ -2,11 +2,16 @@
 
 return [
 
+    /*
+    | Em produção, defina CORS_ALLOWED_ORIGINS com domínios explícitos (sem *).
+    | Ex.: https://app.seudominio.com,https://www.seudominio.com
+    */
+
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')),
+    'allowed_origins' => array_values(array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173'))))),
 
     'allowed_origins_patterns' => [],
 

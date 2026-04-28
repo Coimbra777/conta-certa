@@ -25,8 +25,6 @@ class ExpenseFactory extends Factory
             'total_amount' => fake()->randomFloat(2, 10, 5000),
             'due_date' => fake()->dateTimeBetween('now', '+30 days')->format('Y-m-d'),
             'status' => 'open',
-            'public_hash' => fake()->uuid(),
-            'manage_token' => fake()->uuid(),
             'amount_per_member' => null,
             'pix_key' => null,
             'pix_qr_code' => null,

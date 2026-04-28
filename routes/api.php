@@ -8,13 +8,16 @@ use App\Http\Controllers\Api\V1\TeamController;
 use App\Http\Controllers\Api\V1\TeamMemberController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/public/expenses', [PublicExpenseController::class, 'store']);
+Route::post('/public/expenses', [PublicExpenseController::class, 'store'])
+    ->middleware('throttle:public-create-expense');
 
 Route::prefix('v1')->group(function () {
 
     Route::prefix('auth')->group(function () {
-        Route::post('/register', [AuthController::class, 'register']);
-        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/register', [AuthController::class, 'register'])
+            ->middleware('throttle:auth-register');
+        Route::post('/login', [AuthController::class, 'login'])
+            ->middleware('throttle:auth-login');
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
@@ -24,14 +27,22 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('public')->group(function () {
         Route::get('/expenses/{hash}', [PublicExpenseController::class, 'show']);
-        Route::patch('/expenses/{hash}/close', [PublicExpenseController::class, 'closeExpense']);
-        Route::patch('/expenses/{hash}', [PublicExpenseController::class, 'updateExpense']);
-        Route::post('/expenses/{hash}/participants', [PublicExpenseController::class, 'addParticipants']);
-        Route::post('/expenses/{hash}/validate-participant', [PublicExpenseController::class, 'validateParticipantPublic']);
-        Route::post('/expenses/{hash}/submit-proof', [PublicExpenseController::class, 'submitProofPublic']);
-        Route::patch('/charges/{charge}/validate', [PublicExpenseController::class, 'validateCharge']);
-        Route::patch('/charges/{charge}/reject', [PublicExpenseController::class, 'rejectCharge']);
-        Route::get('/charges/{charge}/proof', [PublicExpenseController::class, 'downloadProof']);
+        Route::patch('/expenses/{hash}/close', [PublicExpenseController::class, 'closeExpense'])
+            ->middleware('throttle:public-sensitive-mutation');
+        Route::patch('/expenses/{hash}', [PublicExpenseController::class, 'updateExpense'])
+            ->middleware('throttle:public-sensitive-mutation');
+        Route::post('/expenses/{hash}/participants', [PublicExpenseController::class, 'addParticipants'])
+            ->middleware('throttle:public-sensitive-mutation');
+        Route::post('/expenses/{hash}/validate-participant', [PublicExpenseController::class, 'validateParticipantPublic'])
+            ->middleware('throttle:public-validate-participant');
+        Route::post('/expenses/{hash}/submit-proof', [PublicExpenseController::class, 'submitProofPublic'])
+            ->middleware('throttle:public-submit-proof');
+        Route::patch('/charges/{charge}/validate', [PublicExpenseController::class, 'validateCharge'])
+            ->middleware('throttle:public-charge-action');
+        Route::patch('/charges/{charge}/reject', [PublicExpenseController::class, 'rejectCharge'])
+            ->middleware('throttle:public-charge-action');
+        Route::get('/charges/{charge}/proof', [PublicExpenseController::class, 'downloadProof'])
+            ->middleware('throttle:public-charge-action');
     });
 
     Route::middleware('auth:sanctum')->group(function () {

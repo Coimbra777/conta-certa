@@ -68,6 +68,7 @@ php artisan test
 - `doc/api.md` — API
 - `doc/frontend.md` — React/Vite e CORS
 - `doc/arquitetura.md` — visão geral
+- `doc/SECURITY.md` — revisão de segurança, rate limits, uploads, checklist de produção
 
 ## Deploy
 

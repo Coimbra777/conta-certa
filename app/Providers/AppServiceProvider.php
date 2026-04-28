@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -13,6 +16,40 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        RateLimiter::for('auth-login', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip());
+        });
+
+        RateLimiter::for('auth-register', function (Request $request) {
+            return Limit::perMinute(3)->by($request->ip());
+        });
+
+        RateLimiter::for('public-create-expense', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
+        RateLimiter::for('public-validate-participant', function (Request $request) {
+            $hash = (string) $request->route('hash', '');
+
+            return Limit::perMinute(30)->by($request->ip().'|'.$hash);
+        });
+
+        RateLimiter::for('public-submit-proof', function (Request $request) {
+            $hash = (string) $request->route('hash', '');
+
+            return Limit::perMinute(15)->by($request->ip().'|'.$hash);
+        });
+
+        RateLimiter::for('public-sensitive-mutation', function (Request $request) {
+            $hash = (string) $request->route('hash', '');
+
+            return Limit::perMinute(40)->by($request->ip().'|'.$hash);
+        });
+
+        RateLimiter::for('public-charge-action', function (Request $request) {
+            $charge = (string) $request->route('charge', '');
+
+            return Limit::perMinute(60)->by($request->ip().'|'.$charge);
+        });
     }
 }

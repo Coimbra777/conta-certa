@@ -7,189 +7,189 @@ const LS_KEY = "contacerta:mock:v1";
 const LS_AUTH = "contacerta:auth:v1";
 
 interface DB {
-  user: User | null;
-  expenses: Expense[];
+    user: User | null;
+    expenses: Expense[];
 }
 
 const seedExpense = (): Expense => ({
-  id: "exp_demo_1",
-  publicHash: "demo-churrasco-2025",
-  title: "Churrasco da galera 🔥",
-  description: "Carne, carvão e bebida pro sábado.",
-  totalAmount: 384.5,
-  dueDate: new Date(Date.now() + 6 * 86400000).toISOString(),
-  pixKeyType: "email",
-  pixKey: "organizador@exemplo.com",
-  pixReceiverName: "Lucas Martins",
-  organizerName: "Lucas Martins",
-  createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-  participants: [
-    { id: "p1", name: "Lucas Martins", phone: "(11) 91234-5678", amount: 76.9, status: "validated", proofSentAt: new Date(Date.now() - 86400000).toISOString() },
-    { id: "p2", name: "Bia Rocha", phone: "(11) 99876-5432", amount: 76.9, status: "proof_sent", proofSentAt: new Date(Date.now() - 3600000).toISOString(), proofUrl: "/placeholder.svg" },
-    { id: "p3", name: "João Pedro", phone: "(21) 98888-1111", amount: 76.9, status: "pending" },
-    { id: "p4", name: "Marina Reis", phone: "(31) 97777-2222", amount: 76.9, status: "rejected", rejectionReason: "Comprovante ilegível, reenvie por favor.", proofSentAt: new Date(Date.now() - 7200000).toISOString() },
-    { id: "p5", name: "Thiago Costa", phone: "(41) 96666-3333", amount: 76.9, status: "pending" },
-  ],
+    id: "exp_demo_1",
+    publicHash: "demo-churrasco-2025",
+    title: "Churrasco da galera 🔥",
+    description: "Carne, carvão e bebida pro sábado.",
+    totalAmount: 384.5,
+    dueDate: new Date(Date.now() + 6 * 86400000).toISOString(),
+    pixKeyType: "email",
+    pixKey: "organizador@exemplo.com",
+    pixReceiverName: "Lucas Martins",
+    organizerName: "Lucas Martins",
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    participants: [
+        { id: "p1", name: "Lucas Martins", phone: "(11) 91234-5678", amount: 76.9, status: "validated", proofSentAt: new Date(Date.now() - 86400000).toISOString() },
+        { id: "p2", name: "Bia Rocha", phone: "(11) 99876-5432", amount: 76.9, status: "proof_sent", proofSentAt: new Date(Date.now() - 3600000).toISOString(), proofUrl: "/placeholder.svg" },
+        { id: "p3", name: "João Pedro", phone: "(21) 98888-1111", amount: 76.9, status: "pending" },
+        { id: "p4", name: "Marina Reis", phone: "(31) 97777-2222", amount: 76.9, status: "rejected", rejectionReason: "Comprovante ilegível, reenvie por favor.", proofSentAt: new Date(Date.now() - 7200000).toISOString() },
+        { id: "p5", name: "Thiago Costa", phone: "(41) 96666-3333", amount: 76.9, status: "pending" },
+    ],
 });
 
 function load(): DB {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as DB;
-  } catch {}
-  const initial: DB = { user: null, expenses: [seedExpense()] };
-  save(initial);
-  return initial;
+    try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) return JSON.parse(raw) as DB;
+    } catch {}
+    const initial: DB = { user: null, expenses: [seedExpense()] };
+    save(initial);
+    return initial;
 }
 
 function save(db: DB) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch {}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(db)); } catch {}
 }
 
 const uid = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 const slug = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "cobranca";
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "cobranca";
 
 const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms));
 
 export const mockApi = {
-  // Auth
-  async register(name: string, email: string, _password: string) {
-    await delay();
-    const db = load();
-    const user: User = { id: uid("u"), name, email };
-    db.user = user;
-    save(db);
-    localStorage.setItem(LS_AUTH, "mock-token-" + user.id);
-    return user;
-  },
-  async login(email: string, _password: string) {
-    await delay();
-    const db = load();
-    const user: User = db.user ?? { id: uid("u"), name: email.split("@")[0], email };
-    db.user = user;
-    save(db);
-    localStorage.setItem(LS_AUTH, "mock-token-" + user.id);
-    return user;
-  },
-  async me() {
-    await delay(120);
-    const db = load();
-    if (!localStorage.getItem(LS_AUTH)) return null;
-    return db.user;
-  },
-  async logout() {
-    localStorage.removeItem(LS_AUTH);
-    return true;
-  },
+    // Auth
+    async register(name: string, email: string, _password: string) {
+        await delay();
+        const db = load();
+        const user: User = { id: uid("u"), name, email };
+        db.user = user;
+        save(db);
+        localStorage.setItem(LS_AUTH, "mock-token-" + user.id);
+        return user;
+    },
+    async login(email: string, _password: string) {
+        await delay();
+        const db = load();
+        const user: User = db.user ?? { id: uid("u"), name: email.split("@")[0], email };
+        db.user = user;
+        save(db);
+        localStorage.setItem(LS_AUTH, "mock-token-" + user.id);
+        return user;
+    },
+    async me() {
+        await delay(120);
+        const db = load();
+        if (!localStorage.getItem(LS_AUTH)) return null;
+        return db.user;
+    },
+    async logout() {
+        localStorage.removeItem(LS_AUTH);
+        return true;
+    },
 
-  // Expenses
-  async listExpenses() {
-    await delay(200);
-    return load().expenses;
-  },
-  async getExpense(id: string) {
-    await delay(180);
-    return load().expenses.find((e) => e.id === id) ?? null;
-  },
-  async getExpenseByHash(hash: string) {
-    await delay(180);
-    return load().expenses.find((e) => e.publicHash === hash) ?? null;
-  },
-  async createExpense(input: {
-    title: string;
-    description?: string;
-    totalAmount: number;
-    dueDate?: string;
-    pixKeyType: PixKeyType;
-    pixKey: string;
-    pixReceiverName: string;
-    participants: Array<{ name: string; phone: string; amount: number }>;
-  }) {
-    await delay(450);
-    const db = load();
-    const organizer = db.user?.name ?? input.pixReceiverName;
-    const expense: Expense = {
-      id: uid("exp"),
-      publicHash: `${slug(input.title)}-${Math.random().toString(36).slice(2, 6)}`,
-      title: input.title,
-      description: input.description,
-      totalAmount: input.totalAmount,
-      dueDate: input.dueDate,
-      pixKeyType: input.pixKeyType,
-      pixKey: input.pixKey,
-      pixReceiverName: input.pixReceiverName,
-      organizerName: organizer,
-      createdAt: new Date().toISOString(),
-      participants: input.participants.map((p) => ({
-        id: uid("p"),
-        name: p.name,
-        phone: p.phone,
-        amount: p.amount,
-        status: "pending",
-      })),
-    };
-    db.expenses.unshift(expense);
-    save(db);
-    return expense;
-  },
-  async validateParticipant(expenseId: string, participantId: string) {
-    await delay(200);
-    return updateParticipant(expenseId, participantId, (p) => {
-      p.status = "validated";
-      p.rejectionReason = undefined;
-    });
-  },
-  async rejectParticipant(expenseId: string, participantId: string, reason: string) {
-    await delay(200);
-    return updateParticipant(expenseId, participantId, (p) => {
-      p.status = "rejected";
-      p.rejectionReason = reason;
-    });
-  },
+    // Expenses
+    async listExpenses() {
+        await delay(200);
+        return load().expenses;
+    },
+    async getExpense(id: string) {
+        await delay(180);
+        return load().expenses.find((e) => e.id === id) ?? null;
+    },
+    async getExpenseByHash(hash: string) {
+        await delay(180);
+        return load().expenses.find((e) => e.publicHash === hash) ?? null;
+    },
+    async createExpense(input: {
+        title: string;
+        description?: string;
+        totalAmount: number;
+        dueDate?: string;
+        pixKeyType: PixKeyType;
+        pixKey: string;
+        pixReceiverName: string;
+        participants: Array<{ name: string; phone: string; amount: number }>;
+    }) {
+        await delay(450);
+        const db = load();
+        const organizer = db.user?.name ?? input.pixReceiverName;
+        const expense: Expense = {
+            id: uid("exp"),
+            publicHash: `${slug(input.title)}-${Math.random().toString(36).slice(2, 6)}`,
+            title: input.title,
+            description: input.description,
+            totalAmount: input.totalAmount,
+            dueDate: input.dueDate,
+            pixKeyType: input.pixKeyType,
+            pixKey: input.pixKey,
+            pixReceiverName: input.pixReceiverName,
+            organizerName: organizer,
+            createdAt: new Date().toISOString(),
+            participants: input.participants.map((p) => ({
+                id: uid("p"),
+                name: p.name,
+                phone: p.phone,
+                amount: p.amount,
+                status: "pending",
+            })),
+        };
+        db.expenses.unshift(expense);
+        save(db);
+        return expense;
+    },
+    async validateParticipant(expenseId: string, participantId: string) {
+        await delay(200);
+        return updateParticipant(expenseId, participantId, (p) => {
+            p.status = "validated";
+            p.rejectionReason = undefined;
+        });
+    },
+    async rejectParticipant(expenseId: string, participantId: string, reason: string) {
+        await delay(200);
+        return updateParticipant(expenseId, participantId, (p) => {
+            p.status = "rejected";
+            p.rejectionReason = reason;
+        });
+    },
 
-  // Public
-  async identifyParticipant(hash: string, name: string, phone: string) {
-    await delay(250);
-    const db = load();
-    const exp = db.expenses.find((e) => e.publicHash === hash);
-    if (!exp) return null;
-    const norm = (s: string) => s.replace(/\D/g, "");
-    let p = exp.participants.find(
-      (x) =>
-        x.name.toLowerCase().trim() === name.toLowerCase().trim() ||
-        (phone && norm(x.phone) === norm(phone))
-    );
-    if (!p) {
-      // Permite auto-cadastro com valor 0 se desejado; aqui exigimos match.
-      return null;
-    }
-    return { expense: exp, participant: p };
-  },
-  async submitProof(hash: string, participant: Participant, _file: File) {
-    await delay(450);
-    void _file;
-    const db = load();
-    const exp = db.expenses.find((e) => e.publicHash === hash);
-    if (!exp) return null;
-    const p = exp.participants.find((x) => x.id === participant.id);
-    if (!p) return null;
-    p.status = "proof_sent";
-    p.proofUrl = "/placeholder.svg";
-    p.proofSentAt = new Date().toISOString();
-    p.rejectionReason = undefined;
-    save(db);
-    return p;
-  },
+    // Public
+    async identifyParticipant(hash: string, name: string, phone: string) {
+        await delay(250);
+        const db = load();
+        const exp = db.expenses.find((e) => e.publicHash === hash);
+        if (!exp) return null;
+        const norm = (s: string) => s.replace(/\D/g, "");
+        let p = exp.participants.find(
+            (x) =>
+                x.name.toLowerCase().trim() === name.toLowerCase().trim() ||
+                (phone && norm(x.phone) === norm(phone))
+        );
+        if (!p) {
+            // Permite auto-cadastro com valor 0 se desejado; aqui exigimos match.
+            return null;
+        }
+        return { expense: exp, participant: p };
+    },
+    async submitProof(hash: string, participant: Participant, _file: File) {
+        await delay(450);
+        void _file;
+        const db = load();
+        const exp = db.expenses.find((e) => e.publicHash === hash);
+        if (!exp) return null;
+        const p = exp.participants.find((x) => x.id === participant.id);
+        if (!p) return null;
+        p.status = "proof_sent";
+        p.proofUrl = "/placeholder.svg";
+        p.proofSentAt = new Date().toISOString();
+        p.rejectionReason = undefined;
+        save(db);
+        return p;
+    },
 };
 
 function updateParticipant(expenseId: string, participantId: string, mut: (p: Participant) => void) {
-  const db = load();
-  const exp = db.expenses.find((e) => e.id === expenseId);
-  if (!exp) return null;
-  const p = exp.participants.find((x) => x.id === participantId);
-  if (!p) return null;
-  mut(p);
-  save(db);
-  return p;
+    const db = load();
+    const exp = db.expenses.find((e) => e.id === expenseId);
+    if (!exp) return null;
+    const p = exp.participants.find((x) => x.id === participantId);
+    if (!p) return null;
+    mut(p);
+    save(db);
+    return p;
 }

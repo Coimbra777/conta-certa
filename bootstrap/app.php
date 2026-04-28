@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\HttpApiException;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->throttleApi('60,1');
+        $middleware->api(append: [
+            SecurityHeaders::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (HttpApiException $e, Request $request) {

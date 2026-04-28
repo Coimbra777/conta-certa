@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\ProofUploadFixture;
 use Tests\TestCase;
 
 class PaymentValidationTest extends TestCase
@@ -47,9 +48,11 @@ class PaymentValidationTest extends TestCase
             'due_date' => now()->addDays(3)->format('Y-m-d'),
             'pix_key' => '11999999999',
             'status' => 'open',
+        ]);
+        $expense->forceFill([
             'public_hash' => 'val-hash-123',
             'manage_token' => 'val-manage-token',
-        ]);
+        ])->save();
 
         $charge1 = Charge::create([
             'expense_id' => $expense->id,
@@ -192,7 +195,7 @@ class PaymentValidationTest extends TestCase
 
         $this->assertDatabaseHas('charges', ['id' => $charge2->id, 'status' => 'rejected']);
 
-        $file = UploadedFile::fake()->create('new_proof.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('new_proof.jpg');
         $response = $this->post('/api/v1/public/expenses/val-hash-123/submit-proof', [
             'name' => 'Maria',
             'phone' => '11000000002',

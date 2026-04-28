@@ -11,7 +11,6 @@ use App\Support\ChargeStatusTransition;
 use App\Support\PhoneNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class ExpenseService
 {
@@ -36,8 +35,6 @@ class ExpenseService
                 'pix_key' => $data['pix_key'],
                 'pix_qr_code' => $data['pix_qr_code'] ?? null,
                 'status' => 'open',
-                'public_hash' => (string) Str::uuid(),
-                'manage_token' => (string) Str::uuid(),
             ]);
 
             foreach ($members as $member) {

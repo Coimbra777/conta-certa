@@ -38,8 +38,6 @@ class PublicExpenseCreatorService
                 'pix_key' => $data['pix_key'],
                 'pix_qr_code' => $data['pix_qr_code'] ?? null,
                 'status' => 'open',
-                'public_hash' => (string) Str::uuid(),
-                'manage_token' => (string) Str::uuid(),
             ]);
 
             foreach ($data['participants'] as $participant) {

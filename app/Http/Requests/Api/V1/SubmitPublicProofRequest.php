@@ -16,7 +16,13 @@ class SubmitPublicProofRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'proof' => [
+                'required',
+                'file',
+                'max:5120',
+                'mimes:jpg,jpeg,png,pdf',
+                'mimetypes:image/jpeg,image/png,application/pdf',
+            ],
         ];
     }
 }

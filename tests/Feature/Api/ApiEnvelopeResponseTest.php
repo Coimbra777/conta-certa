@@ -36,9 +36,11 @@ class ApiEnvelopeResponseTest extends TestCase
             'due_date' => now()->addDay()->format('Y-m-d'),
             'pix_key' => 'pix',
             'status' => 'open',
+        ]);
+        $expense->forceFill([
             'public_hash' => 'env-hash-1',
             'manage_token' => 'token-env-1',
-        ]);
+        ])->save();
 
         Charge::create([
             'expense_id' => $expense->id,

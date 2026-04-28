@@ -8,6 +8,7 @@ use App\Models\PaymentProof;
 use App\Support\ChargeStatusTransition;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PaymentProofService
 {
@@ -31,13 +32,47 @@ class PaymentProofService
 
         $previousStatus = $charge->status;
 
-        $path = $file->store("payment-proofs/{$charge->id}", 'local');
+        $directory = 'payment-proofs/'.$charge->id;
+        $clientExt = strtolower((string) $file->getClientOriginalExtension());
+        $ext = match ($clientExt) {
+            'jpg', 'jpeg' => 'jpg',
+            'png' => 'png',
+            'pdf' => 'pdf',
+            default => 'dat',
+        };
+        $storedName = Str::uuid()->toString().'.'.$ext;
+        $path = $file->storeAs($directory, $storedName, 'local');
+
+        if ($path === false) {
+            throw new HttpApiException('Falha ao armazenar o arquivo.', 'UPLOAD_FAILED', 500);
+        }
+
+        $fullPath = Storage::disk('local')->path($path);
+        $detectedMime = $this->detectAllowedMimeFromFile($fullPath);
+
+        if ($detectedMime === null) {
+            Storage::disk('local')->delete($path);
+            throw new HttpApiException(
+                'Tipo de arquivo não permitido.',
+                'INVALID_FILE_TYPE',
+                422,
+            );
+        }
+
+        $safeOriginal = Str::limit(
+            (string) preg_replace('/[^\pL\pN._ -]/u', '_', basename($file->getClientOriginalName())),
+            200,
+            '',
+        );
+        if ($safeOriginal === '') {
+            $safeOriginal = 'comprovante';
+        }
 
         $proof = PaymentProof::create([
             'charge_id' => $charge->id,
             'file_path' => $path,
-            'original_filename' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
+            'original_filename' => $safeOriginal,
+            'mime_type' => $detectedMime,
             'status' => 'pending',
         ]);
 
@@ -52,5 +87,28 @@ class PaymentProofService
     public function getProofPath(PaymentProof $proof): string
     {
         return Storage::disk('local')->path($proof->file_path);
+    }
+
+    /**
+     * Valida tipo real pelo conteúdo (magic bytes), sem confiar só no MIME declarado.
+     */
+    private function detectAllowedMimeFromFile(string $absolutePath): ?string
+    {
+        $head = @file_get_contents($absolutePath, false, null, 0, 12);
+        if ($head === false || $head === '') {
+            return null;
+        }
+
+        if (str_starts_with($head, "\xFF\xD8\xFF")) {
+            return 'image/jpeg';
+        }
+        if (str_starts_with($head, "\x89PNG\r\n\x1a\n")) {
+            return 'image/png';
+        }
+        if (str_starts_with($head, '%PDF')) {
+            return 'application/pdf';
+        }
+
+        return null;
     }
 }

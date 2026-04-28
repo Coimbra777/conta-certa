@@ -10,6 +10,7 @@ use App\Actions\Expense\AddPublicExpenseParticipantsAction;
 use App\Http\Controllers\Concerns\AuthorizesPublicExpense;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AddPublicExpenseParticipantsRequest;
+use App\Http\Requests\Api\V1\RejectChargeRequest;
 use App\Http\Requests\Api\V1\StorePublicExpenseRequest;
 use App\Http\Requests\Api\V1\SubmitPublicProofRequest;
 use App\Http\Requests\Api\V1\UpdatePublicExpenseRequest;
@@ -22,10 +23,10 @@ use App\Models\Expense;
 use App\Services\ExpenseService;
 use App\Services\PublicExpenseCreatorService;
 use App\Support\PublicParticipantChargeResolver;
+use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -56,8 +57,6 @@ class PublicExpenseController extends Controller
 
     public function show(Request $request, string $hash): JsonResponse
     {
-        Log::info('Public expense lookup', ['hash' => $hash]);
-
         $expense = Expense::where('public_hash', $hash)
             ->with(['charges.teamMember', 'charges.paymentProofs'])
             ->firstOrFail();
@@ -260,7 +259,7 @@ class PublicExpenseController extends Controller
         ], 'Pagamento validado.');
     }
 
-    public function rejectCharge(Request $request, Charge $charge, RejectChargeAction $rejectChargeAction): JsonResponse
+    public function rejectCharge(RejectChargeRequest $request, Charge $charge, RejectChargeAction $rejectChargeAction): JsonResponse
     {
         $expense = $this->authorizeManage($request, $charge->expense);
         $this->assertExpenseOpen($expense);
@@ -284,7 +283,9 @@ class PublicExpenseController extends Controller
             return ApiResponse::error('No proof found.', 'NOT_FOUND', 404);
         }
 
-        return Storage::disk('local')->download($proof->file_path, $proof->original_filename);
+        $downloadName = SafeDownloadFilename::forProof((string) $proof->mime_type, $proof->original_filename);
+
+        return Storage::disk('local')->download($proof->file_path, $downloadName);
     }
 
     private function messageForValidateParticipantStatus(string $status): string

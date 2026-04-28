@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\ProofUploadFixture;
 use Tests\TestCase;
 
 class PublicExpenseTest extends TestCase
@@ -49,9 +50,11 @@ class PublicExpenseTest extends TestCase
             'pix_key' => '11999999999',
             'pix_qr_code' => base64_encode('fake-qr'),
             'status' => 'open',
+        ]);
+        $expense->forceFill([
             'public_hash' => 'test-hash-123',
             'manage_token' => 'manage-token-secret',
-        ]);
+        ])->save();
 
         $charge1 = Charge::create([
             'expense_id' => $expense->id,
@@ -99,9 +102,11 @@ class PublicExpenseTest extends TestCase
             'pix_key' => '11999999999',
             'pix_qr_code' => base64_encode('fake-qr'),
             'status' => 'open',
+        ]);
+        $expense->forceFill([
             'public_hash' => 'test-hash-500',
             'manage_token' => 'manage-token-secret',
-        ]);
+        ])->save();
 
         $charge = Charge::create([
             'expense_id' => $expense->id,
@@ -168,7 +173,7 @@ class PublicExpenseTest extends TestCase
         Storage::fake('local');
         $this->createExpenseWithCharges();
 
-        $file = UploadedFile::fake()->create('comprovante.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('comprovante.jpg');
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
@@ -230,7 +235,7 @@ class PublicExpenseTest extends TestCase
 
         [, , $charge2] = $this->createExpenseWithCharges();
 
-        $file = UploadedFile::fake()->create('comprovante.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('comprovante.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
@@ -283,7 +288,7 @@ class PublicExpenseTest extends TestCase
             'phone' => '11000000002',
         ])->assertOk();
 
-        $file = UploadedFile::fake()->create('comp.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('comp.jpg');
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
@@ -318,7 +323,7 @@ class PublicExpenseTest extends TestCase
         $payload = [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
-            'proof' => UploadedFile::fake()->create('a.jpg', 100, 'image/jpeg'),
+            'proof' => ProofUploadFixture::jpegUploadedFile('a.jpg'),
         ];
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
@@ -335,7 +340,7 @@ class PublicExpenseTest extends TestCase
             ->assertJsonPath('data.status', 'proof_sent')
             ->assertJsonPath('data.can_submit_proof', false);
 
-        $payload['proof'] = UploadedFile::fake()->create('b.jpg', 100, 'image/jpeg');
+        $payload['proof'] = ProofUploadFixture::jpegUploadedFile('b.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', $payload)
             ->assertStatus(422)
             ->assertJsonPath('success', false)
@@ -349,7 +354,7 @@ class PublicExpenseTest extends TestCase
         Storage::fake('local');
         [, , $charge2] = $this->createExpenseWithCharges();
 
-        $file = UploadedFile::fake()->create('c.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
@@ -362,7 +367,7 @@ class PublicExpenseTest extends TestCase
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
-            'proof' => UploadedFile::fake()->create('n.jpg', 100, 'image/jpeg'),
+            'proof' => ProofUploadFixture::jpegUploadedFile('n.jpg'),
         ]);
 
         $response->assertStatus(422)
@@ -380,7 +385,7 @@ class PublicExpenseTest extends TestCase
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Atualizada',
             'phone' => '11000000002',
-            'proof' => UploadedFile::fake()->create('comp.jpg', 100, 'image/jpeg'),
+            'proof' => ProofUploadFixture::jpegUploadedFile('comp.jpg'),
         ])->assertStatus(422)
             ->assertJsonPath('message', 'Participante não encontrado nesta despesa.');
 
@@ -586,7 +591,7 @@ class PublicExpenseTest extends TestCase
             'participants' => [['name' => 'Novo', 'phone' => '11911112222']],
         ])->assertStatus(422)->assertJsonPath('message', $msg);
 
-        $file = UploadedFile::fake()->create('c.jpg', 100, 'image/jpeg');
+        $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',

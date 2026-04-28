@@ -24,8 +24,6 @@ class Expense extends Model
         'pix_key',
         'pix_qr_code',
         'status',
-        'public_hash',
-        'manage_token',
     ];
 
     protected $hidden = [

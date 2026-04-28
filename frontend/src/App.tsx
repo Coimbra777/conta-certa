@@ -17,31 +17,31 @@ import PublicExpense from "./pages/PublicExpense.tsx";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<AuthPage mode="login" />} />
-            <Route path="/cadastro" element={<AuthPage mode="register" />} />
+    <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+                <AuthProvider>
+                    <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/login" element={<AuthPage mode="login" />} />
+                        <Route path="/cadastro" element={<AuthPage mode="register" />} />
 
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/cobrancas/nova" element={<ProtectedRoute><NewExpense /></ProtectedRoute>} />
-            <Route path="/cobrancas/:id" element={<ProtectedRoute><ExpenseDetail /></ProtectedRoute>} />
-            <Route path="/cobrancas/:id/sucesso" element={<ProtectedRoute><ExpenseSuccess /></ProtectedRoute>} />
+                        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                        <Route path="/cobrancas/nova" element={<ProtectedRoute><NewExpense /></ProtectedRoute>} />
+                        <Route path="/cobrancas/:id" element={<ProtectedRoute><ExpenseDetail /></ProtectedRoute>} />
+                        <Route path="/cobrancas/:id/sucesso" element={<ProtectedRoute><ExpenseSuccess /></ProtectedRoute>} />
 
-            <Route path="/p/:hash" element={<PublicExpense />} />
+                        <Route path="/p/:hash" element={<PublicExpense />} />
 
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                    </Routes>
+                </AuthProvider>
+            </BrowserRouter>
+        </TooltipProvider>
+    </QueryClientProvider>
 );
 
 export default App;
