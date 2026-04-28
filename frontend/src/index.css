@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Archivo+Black&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ContaCerta Pix — Neo-Brutalismo Kinético
+ * All colors HSL. Use semantic tokens, never raw colors in components.
+ */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 60 9% 96%;          /* paper */
+    --foreground: 240 6% 4%;          /* void */
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 4%;
+
+    /* Brand */
+    --primary: 240 6% 4%;             /* void / black */
+    --primary-foreground: 60 9% 96%;
+
+    --secondary: 60 9% 96%;
+    --secondary-foreground: 240 6% 4%;
+
+    --muted: 60 5% 90%;
+    --muted-foreground: 240 4% 35%;
+
+    --accent: 109 100% 54%;           /* arcade green */
+    --accent-foreground: 240 6% 4%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 4%;              /* hard black borders */
+    --input: 240 6% 4%;
+    --ring: 109 100% 54%;
+
+    /* Brutalist palette */
+    --arcade-green: 109 100% 54%;
+    --arcade-pink: 330 100% 50%;
+    --arcade-cyan: 184 100% 50%;
+    --arcade-yellow: 51 100% 55%;
+    --void: 240 6% 4%;
+    --paper: 60 9% 96%;
+
+    /* Status colors */
+    --status-pending: 51 100% 55%;        /* yellow */
+    --status-pending-fg: 240 6% 4%;
+    --status-proof: 184 100% 50%;         /* cyan */
+    --status-proof-fg: 240 6% 4%;
+    --status-paid: 109 100% 40%;          /* green */
+    --status-paid-fg: 240 6% 4%;
+    --status-rejected: 0 84% 55%;         /* red */
+    --status-rejected-fg: 0 0% 100%;
+
+    --radius: 1rem;
+
+    /* Brutalist shadows */
+    --shadow-sm: 4px 4px 0 0 hsl(var(--void));
+    --shadow-md: 8px 8px 0 0 hsl(var(--void));
+    --shadow-lg: 12px 12px 0 0 hsl(var(--void));
+    --shadow-xl: 16px 16px 0 0 hsl(var(--void));
+  }
+
+  .dark {
+    --background: 240 6% 4%;
+    --foreground: 60 9% 96%;
+    --card: 240 5% 8%;
+    --card-foreground: 60 9% 96%;
+    --popover: 240 5% 8%;
+    --popover-foreground: 60 9% 96%;
+    --primary: 60 9% 96%;
+    --primary-foreground: 240 6% 4%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 60 9% 96%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 109 100% 54%;
+    --accent-foreground: 240 6% 4%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 60 9% 96%;
+    --input: 60 9% 96%;
+    --ring: 109 100% 54%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4, h5, h6 { @apply font-display tracking-tight; }
+}
+
+@layer components {
+  .brutal-border { @apply border-4 border-foreground; }
+  .brutal-shadow-sm { box-shadow: var(--shadow-sm); }
+  .brutal-shadow { box-shadow: var(--shadow-md); }
+  .brutal-shadow-lg { box-shadow: var(--shadow-lg); }
+  .brutal-shadow-xl { box-shadow: var(--shadow-xl); }
+
+  .brutal-press {
+    @apply transition-all duration-150 active:translate-x-1 active:translate-y-1;
+  }
+  .brutal-press-sm { box-shadow: var(--shadow-sm); }
+  .brutal-press-sm:active { box-shadow: 0 0 0 0 hsl(var(--void)); }
+  .brutal-press-md { box-shadow: var(--shadow-md); }
+  .brutal-press-md:active { box-shadow: 0 0 0 0 hsl(var(--void)); }
+}
