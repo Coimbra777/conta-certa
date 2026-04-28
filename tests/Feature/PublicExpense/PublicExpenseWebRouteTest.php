@@ -16,22 +16,25 @@ class PublicExpenseWebRouteTest extends TestCase
         $response->assertRedirect("/p/{$hash}");
     }
 
-    public function test_public_expense_with_manage_returns_ok(): void
+    public function test_public_expense_with_manage_redirects_to_spa_with_query(): void
     {
         $hash = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+        $token = 'test-manage-token';
 
-        $response = $this->get("/public/expenses/{$hash}?manage=".urlencode('test-manage-token'));
+        $response = $this->get("/public/expenses/{$hash}?manage=".urlencode($token));
 
-        $response->assertOk();
+        $response->assertStatus(302);
+        $response->assertRedirect("/p/{$hash}?manage=".urlencode($token));
     }
 
-    public function test_participant_path_returns_ok(): void
+    public function test_participant_path_returns_spa_shell(): void
     {
         $hash = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
         $response = $this->get("/p/{$hash}");
 
         $response->assertOk();
+        $response->assertViewIs('spa');
     }
 
     public function test_legacy_two_segment_participant_path_redirects_to_single_link(): void

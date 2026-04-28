@@ -5,10 +5,10 @@
 Sistema de divisao de despesas (Caixinha) com pagamento PIX via Asaas.
 
 ```
-[Frontend Vue 3]  ←→  [API REST Laravel]  ←→  [Asaas API]
-   Inertia.js            Sanctum               PIX / Webhook
-   Pinia                 Services
-   Tailwind              Eloquent
+[React SPA / Vite]  ←HTTP→  [API REST Laravel]  ←→  [Asaas API]
+   localhost:5173          Sanctum (Bearer)        PIX / Webhook
+   ou / via public/spa     Services
+                           Eloquent
 ```
 
 ## Backend
@@ -101,14 +101,12 @@ Charge
 
 ### Arquitetura
 
+Código em `frontend/` (React + TypeScript + Vite). Em produção o build vai para `public/spa/` e o Laravel serve o shell em `resources/views/spa.blade.php` para qualquer rota que não seja `/api/*`.
+
 ```
-Inertia.js (rotas web → renderiza pages Vue)
+React Router (SPA)
     ↓
-Pages (Vue 3, script setup)
-    ↓
-Pinia Stores (estado + chamadas API)
-    ↓
-api.js (fetch wrapper com Bearer token)
+src/lib/api/client.ts (fetch + Bearer)
     ↓
 API REST (/api/v1/*)
 ```
@@ -116,17 +114,16 @@ API REST (/api/v1/*)
 ### Fluxo de Autenticacao
 
 ```
-1. Login/Register → API retorna token
+1. Login/Register → API retorna { user, token } (JSON cru)
 2. Token salvo em localStorage
-3. api.js inclui Authorization: Bearer em toda requisicao
-4. 401 global → limpa token, redireciona /login
-5. AppLayout.vue verifica token no mount
+3. Cliente inclui Authorization: Bearer nas rotas autenticadas
+4. 401 em rotas protegidas → limpa token, redireciona /login
+5. AuthProvider chama GET /auth/me quando há token
 ```
 
-### Layouts
+### CORS
 
-- **GuestLayout**: login/registro. Redireciona para dashboard se autenticado.
-- **AppLayout**: todas as paginas autenticadas. Navbar responsiva, guard client-side.
+Com o frontend em origem diferente (ex.: `http://localhost:5173`), use `CORS_ALLOWED_ORIGINS` no `.env` e `config/cors.php`.
 
 ## Seguranca
 
@@ -138,7 +135,7 @@ API REST (/api/v1/*)
 - Autorizacao inline em controllers (membership + role check)
 - Rate limiting: 60 req/min na API
 - Validacao completa via FormRequest em todos os endpoints
-- CORS nao necessario (mesmo dominio via Inertia)
+- CORS configurado para o host do Vite em desenvolvimento e para o domínio do SPA em produção, quando aplicável
 
 ## Testes
 
