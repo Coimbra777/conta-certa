@@ -15,8 +15,9 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
 
     const onFile = (f: File | null) => {
         if (!f) return;
-        if (f.size > 8 * 1024 * 1024) {
-            alert("Arquivo grande demais (máx. 8MB).");
+        // Alinhado ao backend: SubmitPublicProofRequest `max:5120` (~5MB em KB).
+        if (f.size > 5 * 1024 * 1024) {
+            alert("Arquivo grande demais (máx. 5MB).");
             return;
         }
         setFile(f);
@@ -63,7 +64,7 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
                             <Upload className="size-5" />
                         </div>
                         <p className="font-bold mt-2">Toque para selecionar o comprovante</p>
-                        <p className="text-sm text-muted-foreground">Imagem ou PDF · até 8MB</p>
+                        <p className="text-sm text-muted-foreground">Imagem ou PDF · até 5MB</p>
                     </div>
                 )}
             </div>
