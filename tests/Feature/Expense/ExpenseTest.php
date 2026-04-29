@@ -273,7 +273,9 @@ class ExpenseTest extends TestCase
         $add = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'Novo Membro', 'phone' => '11888887777'],
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 30],
                 ],
             ]);
 
@@ -375,5 +377,125 @@ class ExpenseTest extends TestCase
             ->getJson("/api/v1/teams/{$team->id}/expenses");
 
         $response->assertStatus(403);
+    }
+
+    public function test_admin_can_delete_expense_when_all_charges_pending(): void
+    {
+        [$team, $admin] = $this->createTeamWithMembers(2);
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}");
+
+        $response->assertOk()->assertJsonPath('success', true);
+        $this->assertDatabaseMissing('expenses', ['id' => $expenseId]);
+        $this->assertDatabaseCount('charges', 0);
+    }
+
+    public function test_cannot_delete_expense_when_charge_not_pending(): void
+    {
+        [$team, $admin] = $this->createTeamWithMembers(2);
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        $charge = \App\Models\Charge::where('expense_id', $expenseId)->first();
+        $charge->update(['status' => 'proof_sent']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}")
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'EXPENSE_CANNOT_BE_DELETED');
+
+        $this->assertDatabaseHas('expenses', ['id' => $expenseId]);
+    }
+
+    public function test_member_cannot_delete_expense(): void
+    {
+        $admin = User::factory()->create();
+        $member = User::factory()->create();
+
+        $team = Team::factory()->create(['owner_id' => $admin->id]);
+        TeamMember::create([
+            'team_id' => $team->id,
+            'user_id' => $admin->id,
+            'name' => $admin->name,
+            'phone' => '11000000001',
+            'email' => $admin->email,
+            'role' => 'admin',
+        ]);
+        TeamMember::create([
+            'team_id' => $team->id,
+            'user_id' => $member->id,
+            'name' => $member->name,
+            'phone' => '11000000002',
+            'email' => $member->email,
+            'role' => 'member',
+        ]);
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload());
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 50],
+                    ['name' => $member->name, 'phone' => '11000000002', 'amount' => 50],
+                ],
+            ])
+            ->assertOk();
+
+        $this->actingAs($member, 'sanctum')
+            ->deleteJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}")
+            ->assertStatus(403);
+    }
+
+    public function test_add_participants_rejects_sum_mismatch(): void
+    {
+        [$team, $admin] = $this->createTeamWithMembers(2);
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses", $this->expensePayload([
+                'total_amount' => 90.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/teams/{$team->id}/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 20],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['participants']);
     }
 }

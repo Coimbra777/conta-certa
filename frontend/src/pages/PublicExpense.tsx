@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import { api } from "@/lib/api/client";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { api, isPublicExpenseUsingMock } from "@/lib/api/client";
+import { mockApi } from "@/lib/api/mockStore";
 import type { Expense, Participant } from "@/lib/types";
 import { PixKeyBox } from "@/components/PixKeyBox";
 import { ProofUpload } from "@/components/ProofUpload";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatBRL, initials } from "@/lib/format";
+import { digitsOnly, formatBrazilPhoneDisplay } from "@/lib/inputMasks";
 import { CheckCircle2, Clock, Smartphone, AlertTriangle } from "lucide-react";
+
+const IDENTIFY_ERROR_MAIN =
+    "Não encontramos esses dados nesta cobrança. Confira o nome e telefone ou fale com o organizador.";
 
 export default function PublicExpense() {
     const { hash = "" } = useParams();
@@ -20,6 +25,14 @@ export default function PublicExpense() {
     const [identifyError, setIdentifyError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
+    const phoneDigits = digitsOnly(phone);
+    const phoneComplete = phoneDigits.length >= 10 && phoneDigits.length <= 11;
+    /** Botão principal: só exige campos preenchidos (validação de formato na submissão). */
+    const canSubmitIdentify =
+        name.trim().length > 0 && phoneDigits.length > 0 && !identifying;
+    const showDemoBypass =
+        Boolean(identifyError) && isPublicExpenseUsingMock(hash);
+
     useEffect(() => {
         api.getPublicExpense(hash, manageToken).then(setExp);
     }, [hash, manageToken]);
@@ -27,11 +40,52 @@ export default function PublicExpense() {
     const identify = async (e: React.FormEvent) => {
         e.preventDefault();
         setIdentifyError(null);
+        if (!name.trim()) return;
+        if (!phoneComplete) {
+            setIdentifyError(
+                "Informe um telefone com DDD e número completos (10 ou 11 dígitos).",
+            );
+            return;
+        }
         setIdentifying(true);
         try {
-            const result = await api.identifyParticipant(hash, name.trim(), phone.trim(), manageToken);
+            const result = await api.identifyParticipant(
+                hash,
+                name.trim(),
+                phoneDigits,
+                manageToken,
+            );
             if (!result) {
-                setIdentifyError("Não encontramos seu nome ou telefone na lista. Confira com quem te enviou o link.");
+                setIdentifyError(IDENTIFY_ERROR_MAIN);
+                return;
+            }
+            setParticipant(result.participant);
+            setExp(result.expense);
+        } finally {
+            setIdentifying(false);
+        }
+    };
+
+    const continueDemo = async () => {
+        if (!isPublicExpenseUsingMock(hash)) return;
+        if (!name.trim() || !phoneComplete) {
+            setIdentifyError(
+                "Informe um telefone com DDD e número completos (10 ou 11 dígitos).",
+            );
+            return;
+        }
+        setIdentifyError(null);
+        setIdentifying(true);
+        try {
+            const result = await mockApi.continuePublicDemoIdentification(
+                hash,
+                name.trim(),
+                phoneDigits,
+            );
+            if (!result) {
+                setIdentifyError(
+                    "Não foi possível continuar no modo demonstração. Tente novamente.",
+                );
                 return;
             }
             setParticipant(result.participant);
@@ -53,14 +107,23 @@ export default function PublicExpense() {
     };
 
     if (exp === undefined) {
-        return <PublicShell><div className="p-8 text-center">Carregando…</div></PublicShell>;
+        return (
+            <PublicShell>
+                <div className="p-8 text-center">Carregando…</div>
+            </PublicShell>
+        );
     }
     if (!exp) {
         return (
             <PublicShell>
                 <div className="p-8 text-center">
-                    <h1 className="font-display text-3xl uppercase mb-2">Link inválido</h1>
-                    <p className="text-muted-foreground">Confira com o organizador se o link está correto.</p>
+                    <h1 className="font-display text-3xl uppercase mb-2">
+                        Link inválido
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Confira com o organizador se o link está correto.
+                    </p>
+                    <BackToHomeLink className="mt-6 mx-auto" />
                 </div>
             </PublicShell>
         );
@@ -68,40 +131,122 @@ export default function PublicExpense() {
 
     return (
         <PublicShell>
-            <header className="px-5 sm:px-6 pt-8 pb-6 border-b-4 border-foreground bg-arcade-yellow">
-                <div className="max-w-md mx-auto">
-                    <span className="text-xs font-bold uppercase tracking-widest">Cobrança compartilhada</span>
-                    <h1 className="font-display text-3xl sm:text-4xl uppercase leading-tight mt-1">{exp.title}</h1>
-                    <p className="text-sm font-bold mt-2">Organizado por {exp.organizerName}</p>
-                    {exp.description && <p className="text-sm mt-1 opacity-80">{exp.description}</p>}
+            <header className="px-5 sm:px-6 pt-6 sm:pt-8 pb-6 border-b-4 border-foreground bg-arcade-yellow">
+                <div className="max-w-md mx-auto flex flex-col gap-4">
+                    <BackToHomeLink />
+                    <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold uppercase tracking-widest">
+                            Cobrança compartilhada
+                        </span>
+                        <h1 className="font-display text-3xl sm:text-4xl uppercase leading-tight">
+                            {exp.title}
+                        </h1>
+                        <p className="text-sm font-bold mt-2">
+                            Organizado por {exp.organizerName}
+                        </p>
+                        {exp.description && (
+                            <p className="text-sm mt-1 opacity-80">
+                                {exp.description}
+                            </p>
+                        )}
+                    </div>
                 </div>
             </header>
 
             <main className="px-5 sm:px-6 py-6 max-w-md mx-auto flex flex-col gap-5">
                 {!participant ? (
-                    <form onSubmit={identify} className="border-4 border-foreground bg-card rounded-2xl brutal-shadow p-5 flex flex-col gap-4">
-                        <h2 className="font-display text-xl uppercase">Quem é você?</h2>
-                        <p className="text-sm text-muted-foreground -mt-2">
-                            Identifique-se para ver seu valor e fazer o pagamento.
+                    <form
+                        onSubmit={identify}
+                        className="border-4 border-foreground bg-card rounded-2xl brutal-shadow p-5 flex flex-col gap-4"
+                    >
+                        <h2 className="font-display text-xl uppercase">
+                            Quem é você?
+                        </h2>
+                        <p className="text-sm text-muted-foreground -mt-2 leading-snug">
+                            Digite o mesmo nome e telefone que o organizador
+                            usou na lista desta cobrança.
                         </p>
                         <label className="flex flex-col gap-1.5">
-                            <span className="text-xs font-bold uppercase tracking-widest">Seu nome</span>
-                            <input className="public-input" value={name} onChange={(e) => setName(e.target.value)} required />
+                            <span className="text-xs font-bold uppercase tracking-widest">
+                                Seu nome
+                            </span>
+                            <input
+                                className="public-input"
+                                value={name}
+                                autoComplete="name"
+                                onChange={(e) => {
+                                    setName(e.target.value);
+                                    setIdentifyError(null);
+                                }}
+                                placeholder="Ex.: Marina Reis"
+                            />
                         </label>
                         <label className="flex flex-col gap-1.5">
-                            <span className="text-xs font-bold uppercase tracking-widest">Telefone</span>
-                            <input className="public-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(11) 9..." />
+                            <span className="text-xs font-bold uppercase tracking-widest">
+                                Telefone (WhatsApp)
+                            </span>
+                            <input
+                                className="public-input"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                value={phone}
+                                onChange={(e) => {
+                                    setPhone(
+                                        formatBrazilPhoneDisplay(
+                                            e.target.value,
+                                        ),
+                                    );
+                                    setIdentifyError(null);
+                                }}
+                                placeholder="(98) 97013-0666"
+                            />
                         </label>
                         {identifyError && (
-                            <div className="border-4 border-foreground bg-status-rejected text-status-rejected-fg px-3 py-2 rounded-lg text-sm font-bold">
-                                {identifyError}
+                            <div
+                                role="alert"
+                                className="rounded-xl border-2 border-amber-600/45 bg-amber-50 px-3 py-3 text-sm text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/35 dark:text-amber-50"
+                            >
+                                <p className="font-medium leading-snug">
+                                    {identifyError}
+                                </p>
+                                {showDemoBypass && (
+                                    <p className="mt-2 font-medium leading-snug opacity-95">
+                                        Como esta é uma demonstração, você
+                                        também pode continuar para conhecer o
+                                        fluxo.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                        {showDemoBypass && (
+                            <div className="rounded-xl border-2 border-dashed border-muted-foreground/35 bg-muted/40 px-3 py-3 text-sm">
+                                <p className="font-medium text-foreground leading-snug">
+                                    Esta é uma cobrança de demonstração. Você
+                                    pode continuar para visualizar como funciona
+                                    o pagamento.
+                                </p>
+                                <button
+                                    type="button"
+                                    disabled={
+                                        identifying ||
+                                        !name.trim() ||
+                                        !phoneComplete
+                                    }
+                                    onClick={continueDemo}
+                                    className="mt-3 w-full border-4 border-foreground bg-background py-3.5 rounded-xl font-bold uppercase tracking-wide brutal-press brutal-press-md disabled:opacity-50 min-h-[48px]"
+                                >
+                                    {identifying
+                                        ? "Carregando…"
+                                        : "Continuar no modo demonstração"}
+                                </button>
                             </div>
                         )}
                         <button
-                            disabled={identifying}
-                            className="bg-accent text-accent-foreground border-4 border-foreground py-4 rounded-xl font-black uppercase tracking-wider brutal-press brutal-press-md disabled:opacity-50"
+                            type="submit"
+                            disabled={!canSubmitIdentify}
+                            className="bg-accent text-accent-foreground border-4 border-foreground py-4 rounded-xl font-black uppercase tracking-wider brutal-press brutal-press-md disabled:opacity-50 min-h-[52px]"
                         >
-                            {identifying ? "..." : "Ver meu pagamento"}
+                            {identifying ? "Verificando…" : "Ver meu pagamento"}
                         </button>
                     </form>
                 ) : (
@@ -109,52 +254,96 @@ export default function PublicExpense() {
                         <div className="border-4 border-foreground bg-card rounded-2xl brutal-shadow p-5 flex flex-col gap-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <div className="size-12 rounded-full border-4 border-foreground bg-arcade-cyan flex items-center justify-center font-black">{initials(participant.name)}</div>
+                                    <div className="size-12 rounded-full border-4 border-foreground bg-arcade-cyan flex items-center justify-center font-black">
+                                        {initials(participant.name)}
+                                    </div>
                                     <div className="min-w-0">
-                                        <div className="font-bold truncate">{participant.name}</div>
-                                        <div className="text-xs text-muted-foreground">Seu valor</div>
+                                        <div className="font-bold truncate">
+                                            {participant.name}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Seu valor
+                                        </div>
                                     </div>
                                 </div>
                                 <StatusBadge status={participant.status} />
                             </div>
-                            <div className="font-display text-5xl tabular-nums leading-none">{formatBRL(participant.amount)}</div>
+                            <div className="font-display text-5xl tabular-nums leading-none">
+                                {formatBRL(participant.amount)}
+                            </div>
                         </div>
 
                         {participant.status === "validated" && (
-                            <Banner tone="green" icon={<CheckCircle2 className="size-5" />} title="Pagamento confirmado">
+                            <Banner
+                                tone="green"
+                                icon={<CheckCircle2 className="size-5" />}
+                                title="Pagamento confirmado"
+                            >
                                 Obrigado! O organizador confirmou seu pagamento.
                             </Banner>
                         )}
 
                         {participant.status === "proof_sent" && (
-                            <Banner tone="cyan" icon={<Clock className="size-5" />} title="Comprovante recebido">
-                                Recebemos seu comprovante. Aguarde a confirmação do organizador.
+                            <Banner
+                                tone="cyan"
+                                icon={<Clock className="size-5" />}
+                                title="Comprovante recebido"
+                            >
+                                Recebemos seu comprovante. Aguarde a confirmação
+                                do organizador.
                             </Banner>
                         )}
 
                         {participant.status === "rejected" && (
-                            <Banner tone="red" icon={<AlertTriangle className="size-5" />} title="Comprovante rejeitado">
-                                {participant.rejectionReason ?? "Confira o motivo e envie um novo comprovante."}
+                            <Banner
+                                tone="red"
+                                icon={<AlertTriangle className="size-5" />}
+                                title="Comprovante rejeitado"
+                            >
+                                {participant.rejectionReason ??
+                                    "Confira o motivo e envie um novo comprovante."}
                             </Banner>
                         )}
 
-                        {(participant.status === "pending" || participant.status === "rejected") && (
+                        {(participant.status === "pending" ||
+                            participant.status === "rejected") && (
                             <>
-                                <PixKeyBox pixKey={exp.pixKey} pixKeyType={exp.pixKeyType} receiverName={exp.pixReceiverName} />
+                                <PixKeyBox
+                                    pixKey={exp.pixKey}
+                                    pixKeyType={exp.pixKeyType}
+                                    receiverName={exp.pixReceiverName}
+                                />
 
                                 <ol className="border-4 border-foreground bg-card rounded-2xl p-5 flex flex-col gap-3 brutal-shadow-sm text-sm">
-                                    <Step n={1} text="Copie a chave Pix acima" />
-                                    <Step n={2} text="Abra o app do seu banco" />
-                                    <Step n={3} text="Faça o pagamento do valor exato" />
-                                    <Step n={4} text="Volte aqui e envie seu comprovante" />
+                                    <Step
+                                        n={1}
+                                        text="Copie a chave Pix acima"
+                                    />
+                                    <Step
+                                        n={2}
+                                        text="Abra o app do seu banco"
+                                    />
+                                    <Step
+                                        n={3}
+                                        text="Faça o pagamento do valor exato"
+                                    />
+                                    <Step
+                                        n={4}
+                                        text="Volte aqui e envie seu comprovante"
+                                    />
                                 </ol>
 
                                 <div className="border-4 border-foreground bg-card rounded-2xl p-5 brutal-shadow flex flex-col gap-3">
                                     <div className="flex items-center gap-2">
                                         <Smartphone className="size-5" />
-                                        <h3 className="font-display text-lg uppercase">Enviar comprovante</h3>
+                                        <h3 className="font-display text-lg uppercase">
+                                            Enviar comprovante
+                                        </h3>
                                     </div>
-                                    <ProofUpload onSubmit={sendProof} submitting={submitting} />
+                                    <ProofUpload
+                                        onSubmit={sendProof}
+                                        submitting={submitting}
+                                    />
                                 </div>
                             </>
                         )}
@@ -179,29 +368,70 @@ export default function PublicExpense() {
     );
 }
 
+function BackToHomeLink({ className = "" }: { className?: string }) {
+    return (
+        <Link
+            to="/"
+            className={`flex w-fit items-center gap-1.5 text-sm font-bold text-foreground underline-offset-4 hover:underline min-h-11 py-2 -mx-1 px-1 rounded-lg ${className}`}
+        >
+            ← Voltar para o início
+        </Link>
+    );
+}
+
 function PublicShell({ children }: { children: React.ReactNode }) {
     return (
         <div className="min-h-dvh bg-background flex flex-col">
             <div className="border-b-4 border-foreground bg-foreground text-background">
                 <div className="max-w-md mx-auto px-5 py-3 flex items-center gap-2">
                     <span className="size-5 rounded-full bg-accent border-2 border-background" />
-                    <span className="font-display uppercase">ContaCerta Pix</span>
+                    <span className="font-display uppercase">
+                        ContaCerta Pix
+                    </span>
                 </div>
             </div>
             <div className="flex-1 flex flex-col">{children}</div>
-            <footer className="text-center text-xs text-muted-foreground py-4">
-                Pagamento seguro via Pix · sem login necessário
+            <footer className="text-center text-xs text-muted-foreground px-4 py-5 border-t border-border/50 leading-relaxed">
+                <p className="sm:hidden">
+                    O pagamento é feito diretamente via Pix para o organizador.
+                    O ContaCerta Pix não movimenta seu dinheiro.
+                </p>
+                <p className="hidden sm:block max-w-xl mx-auto">
+                    Você paga direto para o organizador via Pix. O ContaCerta
+                    Pix apenas ajuda a organizar a cobrança e acompanhar os
+                    comprovantes.
+                </p>
             </footer>
         </div>
     );
 }
 
-function Banner({ tone, icon, title, children }: { tone: "green" | "cyan" | "red"; icon: React.ReactNode; title: string; children: React.ReactNode }) {
-    const bg = tone === "green" ? "bg-arcade-green" : tone === "cyan" ? "bg-arcade-cyan" : "bg-status-rejected";
+function Banner({
+    tone,
+    icon,
+    title,
+    children,
+}: {
+    tone: "green" | "cyan" | "red";
+    icon: React.ReactNode;
+    title: string;
+    children: React.ReactNode;
+}) {
+    const bg =
+        tone === "green"
+            ? "bg-arcade-green"
+            : tone === "cyan"
+              ? "bg-arcade-cyan"
+              : "bg-status-rejected";
     const fg = tone === "red" ? "text-status-rejected-fg" : "text-foreground";
     return (
-        <div className={`border-4 border-foreground rounded-2xl p-5 brutal-shadow-sm ${bg} ${fg}`}>
-            <div className="flex items-center gap-2 font-display text-lg uppercase mb-1">{icon}{title}</div>
+        <div
+            className={`border-4 border-foreground rounded-2xl p-5 brutal-shadow-sm ${bg} ${fg}`}
+        >
+            <div className="flex items-center gap-2 font-display text-lg uppercase mb-1">
+                {icon}
+                {title}
+            </div>
             <p className="text-sm font-medium opacity-90">{children}</p>
         </div>
     );
@@ -210,7 +440,9 @@ function Banner({ tone, icon, title, children }: { tone: "green" | "cyan" | "red
 function Step({ n, text }: { n: number; text: string }) {
     return (
         <li className="flex items-center gap-3">
-            <span className="size-7 rounded-full border-2 border-foreground bg-arcade-pink text-primary-foreground font-black grid place-items-center text-xs">{n}</span>
+            <span className="size-7 rounded-full border-2 border-foreground bg-arcade-pink text-primary-foreground font-black grid place-items-center text-xs">
+                {n}
+            </span>
             <span className="font-medium">{text}</span>
         </li>
     );

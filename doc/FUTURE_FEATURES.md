@@ -183,3 +183,11 @@ Cada item: objetivo, valor, impacto no banco, API, telas, riscos de segurança, 
 | **Telas** | paywall, upgrade. |
 | **Riscos** | Bypass de limites — validar no servidor. |
 | **Prioridade** | Média (negócio) |
+
+---
+
+## Carteira interna, pagamento parcial e reembolsos automáticos
+
+Não faz parte do MVP atual. O modelo vigente exige que a **soma dos valores por participante seja igual ao total** da cobrança; “alguém pagar mais” resolve-se **ajustando o valor daquele participante** na divisão.
+
+Para evolução futura: saldo em carteira, pagamentos parciais, crédito entre participantes, reembolso automático e conciliação Pix — exige novo desenho de ledger, idempotência de webhooks e conformidade com LGPD.

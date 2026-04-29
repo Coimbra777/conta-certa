@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 interface Props { mode: "login" | "register" }
 
 export default function AuthPage({ mode }: Props) {
-    const { login, register, loginDemo } = useAuth();
+    const { login, register, loginDemo, user } = useAuth();
     const nav = useNavigate();
     const [params] = useSearchParams();
     const redirect = params.get("redirect") ?? "/dashboard";
@@ -125,6 +125,7 @@ export default function AuthPage({ mode }: Props) {
                         </button>
                     </form>
 
+                    {!user && (
                     <div className="mt-6 pt-4 border-t-4 border-dashed border-muted-foreground/30">
                         <button
                             type="button"
@@ -151,6 +152,7 @@ export default function AuthPage({ mode }: Props) {
                             Entrar em modo demonstração
                         </button>
                     </div>
+                    )}
 
                     <p className="text-sm text-muted-foreground mt-6 text-center">
                         {isRegister ? (

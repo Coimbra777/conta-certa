@@ -254,6 +254,37 @@ export const mockApi = {
         }
         return { expense: exp, participant: p };
     },
+
+    /**
+     * Fluxo público demo: convidado não está na lista — adiciona participante temporário
+     * ao mock local para permitir ver Pix/comprovante sem alterar API real.
+     */
+    async continuePublicDemoIdentification(
+        hash: string,
+        name: string,
+        phoneDigits: string,
+    ) {
+        await delay(250);
+        const db = load();
+        const exp = db.expenses.find((e) => e.publicHash === hash);
+        if (!exp) return null;
+        const template =
+            exp.participants.find((p) => p.status === "pending") ??
+            exp.participants[0];
+        if (!template) return null;
+        const guestId = `guest_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+        const guest: Participant = {
+            id: guestId,
+            name: name.trim() || "Visitante (demo)",
+            phone: phoneDigits,
+            amount: template.amount,
+            status: "pending",
+        };
+        exp.participants.push(guest);
+        save(db);
+        return { expense: exp, participant: guest };
+    },
+
     async submitProof(hash: string, participant: Participant, _file: File) {
         await delay(450);
         void _file;
@@ -268,6 +299,12 @@ export const mockApi = {
         p.rejectionReason = undefined;
         save(db);
         return p;
+    },
+    async deleteExpense(id: string) {
+        await delay(200);
+        const db = load();
+        db.expenses = db.expenses.filter((e) => e.id !== id);
+        save(db);
     },
 };
 

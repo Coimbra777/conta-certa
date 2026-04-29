@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\HttpApiException;
 use App\Models\Charge;
 use App\Models\Expense;
 use App\Models\Team;
@@ -175,16 +176,11 @@ class ExpenseService
                 $newChargeIds[] = $charge->id;
             }
 
-            if ($newChargeIds === []) {
-                throw new \DomainException(
-                    'Nenhum participante novo: verifique os telefones ou se ja estao na despesa.'
-                );
-            }
-
-            $this->redistributeChargeAmounts($expense->fresh());
+            $fresh = $expense->fresh()->load('charges.teamMember');
+            $this->applyExplicitParticipantAmounts($fresh, $participants);
 
             return [
-                'expense' => $expense->fresh()->load('charges.teamMember'),
+                'expense' => $fresh->load('charges.teamMember'),
                 'newChargeIds' => $newChargeIds,
             ];
         });
@@ -208,6 +204,78 @@ class ExpenseService
         }
 
         return $result['expense'];
+    }
+
+    /**
+     * Atribui valores por participante (telefone). A soma deve igualar o total da despesa.
+     *
+     * @param  list<array{name: string, phone: string, amount?: float|int|string|null}>  $participants
+     */
+    public function applyExplicitParticipantAmounts(Expense $expense, array $participants): void
+    {
+        $charges = $expense->charges()->with('teamMember')->orderBy('id')->get();
+        ChargeStatusTransition::assertAllPendingForRedistribution($charges);
+
+        $amountByPhone = [];
+        foreach ($participants as $p) {
+            $phone = PhoneNormalizer::digits($p['phone'] ?? '');
+            if ($phone === '') {
+                continue;
+            }
+            $amount = isset($p['amount']) ? round((float) $p['amount'], 2) : null;
+            if ($amount === null || $amount <= 0) {
+                throw new \DomainException('Cada participante deve ter um valor maior que zero.');
+            }
+            $amountByPhone[$phone] = $amount;
+        }
+
+        $expectedSum = round((float) $expense->total_amount, 2);
+        $sum = round(array_sum($amountByPhone), 2);
+        if (abs($sum - $expectedSum) > 0.02) {
+            throw new \DomainException('A soma dos valores dos participantes deve ser igual ao valor total da cobrança.');
+        }
+
+        if (count($amountByPhone) !== $charges->count()) {
+            throw new \DomainException('Informe exatamente um valor para cada participante da cobrança.');
+        }
+
+        foreach ($charges as $charge) {
+            $memberPhone = PhoneNormalizer::digits((string) $charge->teamMember->phone);
+            if (! isset($amountByPhone[$memberPhone])) {
+                throw new \DomainException('Defina o valor para cada participante da cobrança.');
+            }
+            $charge->update([
+                'amount' => $amountByPhone[$memberPhone],
+                'description' => $expense->description,
+                'due_date' => $expense->due_date,
+            ]);
+        }
+
+        $count = $charges->count();
+        $avg = $count > 0 ? round($expectedSum / $count, 2) : 0;
+        $expense->update(['amount_per_member' => $avg]);
+    }
+
+    /**
+     * Exclui despesa somente se todas as cobranças estiverem pendentes (sem comprovante/pagamento).
+     */
+    public function deleteExpenseIfAllowed(Expense $expense): void
+    {
+        if ($expense->charges()->where('status', '!=', 'pending')->exists()) {
+            throw new HttpApiException(
+                'Esta cobrança já possui movimentações e não pode ser excluída.',
+                'EXPENSE_CANNOT_BE_DELETED',
+                422,
+            );
+        }
+
+        DB::transaction(function () use ($expense) {
+            foreach ($expense->charges as $charge) {
+                $charge->paymentProofs()->delete();
+                $charge->delete();
+            }
+            $expense->delete();
+        });
     }
 
     /**

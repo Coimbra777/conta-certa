@@ -7,6 +7,7 @@ import type {
     PixKeyType,
     User,
 } from "../types";
+import { mapApiErrorToUserMessage } from "./errorMessages";
 import { mockApi, isDemoPresentationPublicHash } from "./mockStore";
 
 const BASE_URL_RAW = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -48,8 +49,12 @@ function useMockForProtected(): boolean {
 }
 
 /** Rotas públicas /p/:hash: mock em modo demo ou nos hashes de apresentação (seed da landing). */
-function usePublicMock(hash: string): boolean {
+export function isPublicExpenseUsingMock(hash: string): boolean {
     return isDemoMode() || isDemoPresentationPublicHash(hash);
+}
+
+function usePublicMock(hash: string): boolean {
+    return isPublicExpenseUsingMock(hash);
 }
 
 const TOKEN_KEY = "contacerta:auth:v1";
@@ -78,6 +83,21 @@ export class ApiClientError extends Error {
     }
 }
 
+function apiErr(
+    rawMessage: string,
+    opts: {
+        code?: string;
+        status?: number;
+        errors?: Record<string, string[]>;
+    } = {},
+): ApiClientError {
+    const friendly = mapApiErrorToUserMessage({
+        message: rawMessage,
+        ...opts,
+    });
+    return new ApiClientError(friendly, opts);
+}
+
 function getRealBaseUrl(): string {
     return resolveApiBaseUrl();
 }
@@ -96,6 +116,9 @@ function normalizeUser(raw: Record<string, unknown>): User {
         id: String(raw.id ?? ""),
         name: String(raw.name ?? ""),
         email: String(raw.email ?? ""),
+        phone: raw.phone != null && String(raw.phone).trim() !== ""
+            ? String(raw.phone)
+            : undefined,
     };
 }
 
@@ -202,12 +225,12 @@ function throwLaravelValidation(
     status: number,
 ): never {
     const errs = json.errors as Record<string, string[]> | undefined;
-    const msg =
+    const rawMsg =
         (typeof json.message === "string" && json.message) ||
         (errs
             ? String(Object.values(errs).flat()[0] ?? "Dados inválidos.")
             : "Dados inválidos.");
-    throw new ApiClientError(msg, {
+    throw apiErr(rawMsg, {
         status,
         code: "VALIDATION_ERROR",
         errors: errs,
@@ -222,7 +245,7 @@ function unwrapEnvelope<T>(json: unknown, res: Response): T {
     }
     const o = json as Record<string, unknown>;
     if ("success" in o && o.success === false) {
-        throw new ApiClientError(String(o.message ?? "Erro."), {
+        throw apiErr(String(o.message ?? "Erro."), {
             code: typeof o.code === "string" ? o.code : undefined,
             status: res.status,
             errors: o.errors as Record<string, string[]> | undefined,
@@ -237,10 +260,9 @@ function unwrapEnvelope<T>(json: unknown, res: Response): T {
     if (o.errors && typeof o.message === "string") {
         throwLaravelValidation(o, res.status);
     }
-    throw new ApiClientError(
-        String(o.message ?? "Erro ao processar a solicitação."),
-        { status: res.status },
-    );
+    throw apiErr(String(o.message ?? "Erro ao processar a solicitação."), {
+        status: res.status,
+    });
 }
 
 async function authRegister(
@@ -264,10 +286,9 @@ async function authRegister(
     if (!res.ok) {
         if (res.status === 422 && json.errors)
             throwLaravelValidation(json, res.status);
-        throw new ApiClientError(
-            String(json.message ?? "Não foi possível criar a conta."),
-            { status: res.status },
-        );
+        throw apiErr(String(json.message ?? "Não foi possível criar a conta."), {
+            status: res.status,
+        });
     }
     const user = json.user as Record<string, unknown>;
     const token = json.token as string;
@@ -284,10 +305,10 @@ async function authLogin(email: string, password: string): Promise<User> {
     });
     const json = (await readJson(res)) as Record<string, unknown>;
     if (!res.ok) {
-        throw new ApiClientError(
-            String(json.message ?? "Credenciais inválidas."),
-            { status: res.status, code: "UNAUTHENTICATED" },
-        );
+        throw apiErr(String(json.message ?? "Credenciais inválidas."), {
+            status: res.status,
+            code: "UNAUTHENTICATED",
+        });
     }
     const user = json.user as Record<string, unknown>;
     const token = json.token as string;
@@ -523,7 +544,8 @@ export const api = {
             {
                 participants: input.participants.map((p) => ({
                     name: p.name,
-                    phone: p.phone,
+                    phone: p.phone.replace(/\D/g, ""),
+                    amount: p.amount,
                 })),
             },
         );
@@ -701,6 +723,18 @@ export const api = {
                 : undefined,
             proofSentAt: new Date().toISOString(),
         };
+    },
+
+    deleteExpense: async (expenseId: string): Promise<void> => {
+        if (useMockForProtected()) {
+            await mockApi.deleteExpense(expenseId);
+            return;
+        }
+        const teamId = await ensureTeamId();
+        await v1Fetch<unknown>(
+            "DELETE",
+            `/teams/${teamId}/expenses/${expenseId}`,
+        );
     },
 };
 

@@ -7,6 +7,7 @@ use App\Actions\Expense\CreateExpenseAction;
 use App\Exceptions\HttpApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\AddTeamExpenseParticipantsRequest;
+use App\Http\Requests\Api\V1\DestroyExpenseRequest;
 use App\Http\Requests\Api\V1\StoreExpenseRequest;
 use App\Http\Requests\Api\V1\UpdateExpenseRequest;
 use App\Http\Resources\ChargeResource;
@@ -91,6 +92,17 @@ class ExpenseController extends Controller
         return ApiResponse::success([
             'expense' => (new ExpenseResource($expense))->resolve(),
         ], 'Despesa atualizada.');
+    }
+
+    public function destroy(
+        DestroyExpenseRequest $request,
+        Team $team,
+        Expense $expense,
+        ExpenseService $expenseService,
+    ): JsonResponse {
+        $expenseService->deleteExpenseIfAllowed($expense);
+
+        return ApiResponse::success(null, 'Cobrança excluída.');
     }
 
     public function addParticipants(

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { CopyButton } from "@/components/CopyButton";
 import { ParticipantList } from "@/components/ParticipantList";
@@ -10,13 +10,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { api } from "@/lib/api/client";
 import type { Expense, Participant } from "@/lib/types";
 import { buildPublicLink, formatBRL, formatDate } from "@/lib/format";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 
 export default function ExpenseDetail() {
     const { id = "" } = useParams();
+    const nav = useNavigate();
     const [exp, setExp] = useState<Expense | null | undefined>(undefined);
     const [rejectFor, setRejectFor] = useState<Participant | null>(null);
     const [proofFor, setProofFor] = useState<Participant | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const refresh = () => api.getExpense(id).then(setExp);
     useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [id]);
@@ -35,6 +38,9 @@ export default function ExpenseDetail() {
     const proofs = exp.participants.filter((p) => p.status === "proof_sent").length;
     const pending = exp.totalAmount - paid;
     const allPaid = exp.participants.length > 0 && exp.participants.every((p) => p.status === "validated");
+    const canDelete =
+        exp.participants.length > 0 &&
+        exp.participants.every((p) => p.status === "pending");
 
     const onApprove = async (p: Participant) => {
         await api.validateCharge(exp.id, p.id);
@@ -44,6 +50,17 @@ export default function ExpenseDetail() {
         if (!rejectFor) return;
         await api.rejectCharge(exp.id, rejectFor.id, reason);
         refresh();
+    };
+
+    const onDeleteExpense = async () => {
+        setDeleting(true);
+        try {
+            await api.deleteExpense(exp.id);
+            nav("/dashboard");
+        } finally {
+            setDeleting(false);
+            setConfirmDelete(false);
+        }
     };
 
     return (
@@ -60,9 +77,20 @@ export default function ExpenseDetail() {
                                 {exp.description && <p className="text-muted-foreground mt-1">{exp.description}</p>}
                                 <p className="text-sm text-muted-foreground mt-1">Vence em {formatDate(exp.dueDate)}</p>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <StatusBadge status={allPaid ? "validated" : "pending"} />
                                 <span className="font-display text-2xl tabular-nums">{formatBRL(exp.totalAmount)}</span>
+                                {canDelete && (
+                                    <button
+                                        type="button"
+                                        title="Excluir esta cobrança"
+                                        onClick={() => setConfirmDelete(true)}
+                                        className="border-4 border-foreground bg-status-rejected text-status-rejected-fg p-2 rounded-lg brutal-press brutal-press-sm"
+                                        aria-label="Excluir cobrança"
+                                    >
+                                        <Trash2 className="size-5" />
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -86,6 +114,30 @@ export default function ExpenseDetail() {
                     />
                 </section>
             </div>
+
+            <ModalShell open={confirmDelete} title="Excluir cobrança?" onClose={() => !deleting && setConfirmDelete(false)}>
+                <p className="text-sm mb-4">
+                    Esta ação não pode ser desfeita. Só é permitido quando nenhum participante enviou comprovante ou teve pagamento confirmado.
+                </p>
+                <div className="flex gap-3 justify-end flex-wrap">
+                    <button
+                        type="button"
+                        className="border-4 border-foreground bg-card px-4 py-2 rounded-xl font-bold"
+                        disabled={deleting}
+                        onClick={() => setConfirmDelete(false)}
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        className="border-4 border-foreground bg-status-rejected text-status-rejected-fg px-4 py-2 rounded-xl font-black uppercase"
+                        disabled={deleting}
+                        onClick={onDeleteExpense}
+                    >
+                        {deleting ? "Excluindo…" : "Excluir"}
+                    </button>
+                </div>
+            </ModalShell>
 
             <RejectProofModal
                 open={!!rejectFor}

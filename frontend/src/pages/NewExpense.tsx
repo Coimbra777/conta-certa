@@ -1,9 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { api } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 import { PIX_KEY_LABEL, type PixKeyType } from "@/lib/types";
 import { formatBRL } from "@/lib/format";
+import {
+    digitsOnly,
+    formatBrazilPhoneDisplay,
+    maskMoneyTyping,
+    parseMoneyInput,
+} from "@/lib/inputMasks";
 import { Plus, Trash2, Wand2 } from "lucide-react";
 
 interface DraftParticipant {
@@ -13,10 +20,18 @@ interface DraftParticipant {
     amount: string; // string to allow controlled input
 }
 
-const newP = (): DraftParticipant => ({ id: Math.random().toString(36).slice(2), name: "", phone: "", amount: "" });
+const newP = (): DraftParticipant => ({
+    id: Math.random().toString(36).slice(2),
+    name: "",
+    phone: "",
+    amount: "",
+});
+
+const OWNER_ROW_PREFIX = "owner-self";
 
 export default function NewExpense() {
     const nav = useNavigate();
+    const { user } = useAuth();
     const [step, setStep] = useState(1);
 
     // Etapa 1
@@ -33,8 +48,34 @@ export default function NewExpense() {
     // Etapa 3
     const [participants, setParticipants] = useState<DraftParticipant[]>([newP(), newP()]);
     const [submitting, setSubmitting] = useState(false);
+    const [includeSelf, setIncludeSelf] = useState(false);
 
-    const totalNum = parseFloat(totalAmount.replace(",", ".")) || 0;
+    useEffect(() => {
+        if (includeSelf && user?.name) {
+            setParticipants((rows) => {
+                if (rows.some((r) => r.id.startsWith(OWNER_ROW_PREFIX)))
+                    return rows;
+                const ownerPhone = user.phone
+                    ? formatBrazilPhoneDisplay(user.phone)
+                    : "";
+                return [
+                    {
+                        id: `${OWNER_ROW_PREFIX}-${Math.random().toString(36).slice(2)}`,
+                        name: user.name,
+                        phone: ownerPhone,
+                        amount: "",
+                    },
+                    ...rows,
+                ];
+            });
+        } else if (!includeSelf) {
+            setParticipants((rows) =>
+                rows.filter((r) => !r.id.startsWith(OWNER_ROW_PREFIX)),
+            );
+        }
+    }, [includeSelf, user?.id, user?.name, user?.phone]);
+
+    const totalNum = parseMoneyInput(totalAmount);
     const distributed = useMemo(
         () => participants.reduce((s, p) => s + (parseFloat(p.amount.replace(",", ".")) || 0), 0),
         [participants]
@@ -52,13 +93,24 @@ export default function NewExpense() {
 
     const updateP = (id: string, patch: Partial<DraftParticipant>) =>
         setParticipants((arr) => arr.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-    const removeP = (id: string) => setParticipants((arr) => arr.filter((p) => p.id !== id));
+    const removeP = (id: string) => {
+        if (id.startsWith(OWNER_ROW_PREFIX)) setIncludeSelf(false);
+        setParticipants((arr) => arr.filter((p) => p.id !== id));
+    };
 
     const canStep1 = title.trim().length >= 2 && totalNum > 0;
     const canStep2 = pixKey.trim().length > 0 && pixReceiverName.trim().length > 0;
     const canStep3 =
         participants.length > 0 &&
-        participants.every((p) => p.name.trim() && (parseFloat(p.amount.replace(",", ".")) || 0) > 0);
+        Math.abs(diff) <= 0.02 &&
+        participants.every((p) => {
+            const amt = parseFloat(p.amount.replace(",", ".")) || 0;
+            return (
+                p.name.trim().length > 0 &&
+                digitsOnly(p.phone).length >= 10 &&
+                amt > 0
+            );
+        });
 
     const submit = async () => {
         if (!canStep1 || !canStep2 || !canStep3) return;
@@ -74,11 +126,17 @@ export default function NewExpense() {
                 pixReceiverName: pixReceiverName.trim(),
                 participants: participants.map((p) => ({
                     name: p.name.trim(),
-                    phone: p.phone.trim(),
+                    phone: digitsOnly(p.phone),
                     amount: parseFloat(p.amount.replace(",", ".")) || 0,
                 })),
             });
             nav(`/cobrancas/${exp.id}/sucesso`);
+        } catch (e: unknown) {
+            alert(
+                e instanceof Error
+                    ? e.message
+                    : "Não foi possível criar a cobrança.",
+            );
         } finally {
             setSubmitting(false);
         }
@@ -103,8 +161,16 @@ export default function NewExpense() {
                                     <textarea className="brutal-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes do que está sendo cobrado." />
                                 </Field>
                                 <div className="grid sm:grid-cols-2 gap-4">
-                                    <Field label="Valor total (R$)">
-                                        <input className="brutal-input" inputMode="decimal" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="0,00" />
+                                    <Field label="Valor total">
+                                        <input
+                                            className="brutal-input"
+                                            inputMode="decimal"
+                                            value={totalAmount}
+                                            onChange={(e) =>
+                                                setTotalAmount(maskMoneyTyping(e.target.value))
+                                            }
+                                            placeholder="0,00"
+                                        />
                                     </Field>
                                     <Field label="Data limite (opcional)">
                                         <input className="brutal-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -133,6 +199,16 @@ export default function NewExpense() {
 
                         {step === 3 && (
                             <div className="flex flex-col gap-4">
+                                <label className="flex items-start gap-3 cursor-pointer font-bold text-sm border-4 border-foreground rounded-xl p-3 bg-background">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-1 size-4"
+                                        checked={includeSelf}
+                                        onChange={(e) => setIncludeSelf(e.target.checked)}
+                                    />
+                                    <span>Incluir meu nome na divisão (uso o mesmo nome e telefone da conta; ajuste os valores para somarem ao total).</span>
+                                </label>
+
                                 <div className="flex items-center justify-between gap-3 flex-wrap">
                                     <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Participantes</span>
                                     <button
@@ -152,10 +228,32 @@ export default function NewExpense() {
                                                     <input className="brutal-input" value={p.name} onChange={(e) => updateP(p.id, { name: e.target.value })} placeholder="Nome" />
                                                 </Field>
                                                 <Field label="Telefone">
-                                                    <input className="brutal-input" value={p.phone} onChange={(e) => updateP(p.id, { phone: e.target.value })} placeholder="(11) 9..." />
+                                                    <input
+                                                        className="brutal-input"
+                                                        value={p.phone}
+                                                        onChange={(e) =>
+                                                            updateP(p.id, {
+                                                                phone: formatBrazilPhoneDisplay(
+                                                                    e.target.value,
+                                                                ),
+                                                            })
+                                                        }
+                                                        placeholder="(11) 98765-4321"
+                                                        autoComplete="tel"
+                                                    />
                                                 </Field>
                                                 <Field label="Valor (R$)">
-                                                    <input className="brutal-input" inputMode="decimal" value={p.amount} onChange={(e) => updateP(p.id, { amount: e.target.value })} placeholder="0,00" />
+                                                    <input
+                                                        className="brutal-input"
+                                                        inputMode="decimal"
+                                                        value={p.amount}
+                                                        onChange={(e) =>
+                                                            updateP(p.id, {
+                                                                amount: maskMoneyTyping(e.target.value),
+                                                            })
+                                                        }
+                                                        placeholder="0,00"
+                                                    />
                                                 </Field>
                                             </div>
                                             <button
@@ -224,7 +322,7 @@ export default function NewExpense() {
                     />
                     <Row label="Participantes" value={participants.length} />
                     <p className="text-xs font-medium text-foreground/70 mt-2">
-                        A diferença ideal é R$ 0,00. Use “Dividir igualmente” pra ajustar rapidinho.
+                        A soma dos valores dos participantes deve ser igual ao total. Enquanto houver diferença, não é possível concluir.
                     </p>
                 </aside>
             </div>

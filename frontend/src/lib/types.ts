@@ -31,6 +31,8 @@ export interface User {
     id: string;
     name: string;
     email: string;
+    /** Telefone do perfil (API real); opcional. */
+    phone?: string;
 }
 
 export interface Participant {

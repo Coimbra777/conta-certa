@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{team}/expenses', [ExpenseController::class, 'index']);
             Route::get('/{team}/expenses/{expense}', [ExpenseController::class, 'show']);
             Route::patch('/{team}/expenses/{expense}', [ExpenseController::class, 'update']);
+            Route::delete('/{team}/expenses/{expense}', [ExpenseController::class, 'destroy']);
             Route::post('/{team}/expenses/{expense}/participants', [ExpenseController::class, 'addParticipants']);
         });
     });
