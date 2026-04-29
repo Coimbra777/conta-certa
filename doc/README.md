@@ -8,7 +8,8 @@
 | [BACKEND.md](./BACKEND.md) | Pastas, actions, services, testes, banco |
 | [FRONTEND.md](./FRONTEND.md) | Vite/React, rotas, client, auth, build |
 | [SECURITY.md](./SECURITY.md) | Ameaças, hardening, OWASP, checklist |
-| [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) | Deploy e produção |
+| [DEPLOY.md](./DEPLOY.md) | Build da SPA, deploy, Docker/MySQL |
+| [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) | Checklist de segurança e produção |
 | [FUTURE_FEATURES.md](./FUTURE_FEATURES.md) | Roadmap sugerido com impacto e riscos |
 
 Legado (conteúdo pode estar desatualizado em relação aos arquivos acima):
