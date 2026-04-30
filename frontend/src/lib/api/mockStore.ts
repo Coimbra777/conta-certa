@@ -53,6 +53,7 @@ const seedExpense = (): Expense => ({
             phone: "(11) 91234-5678",
             amount: 76.9,
             status: "validated",
+            hasProof: true,
             proofSentAt: new Date(Date.now() - 86400000).toISOString(),
         },
         {
@@ -61,8 +62,8 @@ const seedExpense = (): Expense => ({
             phone: "(11) 99876-5432",
             amount: 76.9,
             status: "proof_sent",
+            hasProof: true,
             proofSentAt: new Date(Date.now() - 3600000).toISOString(),
-            proofUrl: "/placeholder.svg",
         },
         {
             id: "p3",
@@ -77,6 +78,7 @@ const seedExpense = (): Expense => ({
             phone: "(31) 97777-2222",
             amount: 76.9,
             status: "rejected",
+            hasProof: true,
             rejectionReason: "Comprovante ilegível, reenvie por favor.",
             proofSentAt: new Date(Date.now() - 7200000).toISOString(),
         },
@@ -255,6 +257,13 @@ export const mockApi = {
         });
     },
 
+    async fetchChargeProofForView(_chargeId: string): Promise<Blob> {
+        await delay(200);
+        const svg =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160"><rect fill="#bfdbfe" width="240" height="160" rx="8"/><text x="120" y="88" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#1e3a8a">Demo — comprovante</text></svg>';
+        return new Blob([svg], { type: "image/svg+xml" });
+    },
+
     // Public
     async identifyParticipant(hash: string, name: string, phone: string) {
         await delay(250);
@@ -313,7 +322,7 @@ export const mockApi = {
         const p = exp.participants.find((x) => x.id === participant.id);
         if (!p) return null;
         p.status = "proof_sent";
-        p.proofUrl = "/placeholder.svg";
+        p.hasProof = true;
         p.proofSentAt = new Date().toISOString();
         p.rejectionReason = undefined;
         save(db);

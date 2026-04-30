@@ -178,7 +178,10 @@ function mapExpenseFromApi(e: Record<string, unknown>): Expense {
                 rejectionReason: c.rejection_reason
                     ? String(c.rejection_reason)
                     : undefined,
-                proofSentAt: undefined,
+                proofSentAt: c.proof_uploaded_at
+                    ? String(c.proof_uploaded_at)
+                    : undefined,
+                hasProof: Boolean(c.has_proof),
                 proofUrl: undefined,
             };
         }),
@@ -474,6 +477,32 @@ async function v1Fetch<T>(
     return unwrapEnvelope<T>(json, res);
 }
 
+async function v1FetchBlob(path: string): Promise<Blob> {
+    const base = getRealBaseUrl();
+    const res = await fetch(`${base}/api/v1${path}`, {
+        headers: authHeaders(false),
+    });
+    if (res.status === 401) onUnauthorized();
+    if (!res.ok) {
+        let msg = `Erro ${res.status}`;
+        try {
+            const data = (await res.json()) as Record<string, unknown>;
+            if (
+                data &&
+                typeof data === "object" &&
+                data.success === false &&
+                typeof data.message === "string"
+            ) {
+                msg = data.message;
+            }
+        } catch {
+            /* corpo não JSON */
+        }
+        throw apiErr(msg, { status: res.status });
+    }
+    return res.blob();
+}
+
 export const api = {
     /** Modo apresentação: sem Bearer; dados só em mockStore. */
     enterDemo: async (): Promise<User> => {
@@ -629,6 +658,14 @@ export const api = {
                 ? String(c.rejection_reason)
                 : reason,
         };
+    },
+
+    fetchChargeProofForView: async (chargeId: string): Promise<Blob> => {
+        if (useMockForProtected())
+            return mockApi.fetchChargeProofForView(chargeId);
+        return v1FetchBlob(
+            `/charges/${encodeURIComponent(chargeId)}/proofs/latest/view`,
+        );
     },
 
     getPublicExpense: async (

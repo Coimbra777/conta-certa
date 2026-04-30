@@ -43,6 +43,8 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:public-charge-action');
         Route::get('/charges/{charge}/proof', [PublicExpenseController::class, 'downloadProof'])
             ->middleware('throttle:public-charge-action');
+        Route::get('/charges/{charge}/proofs/latest/view', [PublicExpenseController::class, 'viewLatestProof'])
+            ->middleware('throttle:public-charge-action');
     });
 
     Route::middleware('auth:sanctum')->group(function () {
@@ -58,6 +60,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/charges/{charge}/validate', [ChargeValidationController::class, 'validateCharge']);
         Route::patch('/charges/{charge}/reject', [ChargeValidationController::class, 'reject']);
         Route::get('/charges/{charge}/proof', [ChargeValidationController::class, 'downloadProof']);
+        Route::get('/charges/{charge}/proofs/latest/view', [ChargeValidationController::class, 'viewLatestProof']);
     });
 
 });

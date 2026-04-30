@@ -68,11 +68,15 @@ export function ParticipantList({
                     </div>
 
                     {(p.status === "proof_sent" ||
-                        (p.status === "validated" && p.proofUrl) ||
-                        p.status === "rejected") && (
+                        p.status === "validated" ||
+                        p.status === "rejected") &&
+                        ((p.hasProof && onViewProof) ||
+                            (p.status === "proof_sent" &&
+                                (onApprove || onReject))) && (
                         <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-dashed border-foreground/20">
-                            {p.proofUrl && onViewProof && (
+                            {p.hasProof && onViewProof && (
                                 <button
+                                    type="button"
                                     onClick={() => onViewProof(p)}
                                     className="inline-flex items-center gap-1.5 text-sm font-bold border-2 border-foreground bg-card px-3 py-1.5 rounded-lg brutal-press brutal-press-sm"
                                 >

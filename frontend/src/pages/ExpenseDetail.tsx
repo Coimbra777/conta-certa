@@ -25,11 +25,70 @@ export default function ExpenseDetail() {
     const [exp, setExp] = useState<Expense | null | undefined>(undefined);
     const [rejectFor, setRejectFor] = useState<Participant | null>(null);
     const [proofFor, setProofFor] = useState<Participant | null>(null);
+    const [proofPreview, setProofPreview] = useState<{
+        url: string;
+        mime: string;
+    } | null>(null);
+    const [proofLoading, setProofLoading] = useState(false);
+    const [proofError, setProofError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
     const refresh = () => api.getExpense(id).then(setExp);
     useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [id]);
+
+    useEffect(() => {
+        if (!proofFor) {
+            setProofPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev.url);
+                return null;
+            });
+            setProofError(null);
+            setProofLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+        let objectUrl: string | null = null;
+
+        setProofPreview((prev) => {
+            if (prev) URL.revokeObjectURL(prev.url);
+            return null;
+        });
+        setProofError(null);
+        setProofLoading(true);
+
+        api.fetchChargeProofForView(proofFor.id)
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                if (cancelled) {
+                    URL.revokeObjectURL(url);
+                    return;
+                }
+                objectUrl = url;
+                setProofPreview({
+                    url,
+                    mime: blob.type || "",
+                });
+            })
+            .catch((e) => {
+                if (!cancelled) {
+                    setProofError(
+                        e instanceof Error
+                            ? e.message
+                            : "Não foi possível carregar o comprovante.",
+                    );
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setProofLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [proofFor]);
 
     if (exp === undefined) return <AppShell><div className="p-8">Carregando…</div></AppShell>;
     if (!exp) return (
@@ -180,12 +239,40 @@ export default function ExpenseDetail() {
             />
 
             <ModalShell open={!!proofFor} title="Comprovante" onClose={() => setProofFor(null)}>
-                <div className="flex flex-col items-center gap-4">
-                    {proofFor?.proofUrl ? (
-                        <img src={proofFor.proofUrl} alt="Comprovante" className="max-w-full border-4 border-foreground rounded-xl" />
-                    ) : (
-                        <p className="text-muted-foreground">Sem comprovante.</p>
+                <div className="flex flex-col items-stretch gap-4 w-full min-h-[180px]">
+                    {proofLoading && (
+                        <p className="text-center text-muted-foreground py-8">
+                            Carregando comprovante…
+                        </p>
                     )}
+                    {proofError && (
+                        <p className="text-center text-sm font-medium text-status-rejected px-2">
+                            {proofError}
+                        </p>
+                    )}
+                    {proofPreview &&
+                        !proofLoading &&
+                        (proofPreview.mime === "application/pdf" ? (
+                            <iframe
+                                title="Comprovante PDF"
+                                src={proofPreview.url}
+                                className="w-full min-h-[70vh] border-4 border-foreground rounded-xl bg-background"
+                            />
+                        ) : !proofPreview.mime ||
+                          proofPreview.mime.startsWith("image/") ||
+                          proofPreview.mime === "image/svg+xml" ? (
+                            <img
+                                src={proofPreview.url}
+                                alt="Comprovante"
+                                className="max-w-full border-4 border-foreground rounded-xl mx-auto"
+                            />
+                        ) : (
+                            <p className="text-sm text-muted-foreground text-center px-2">
+                                Este tipo de arquivo não pode ser exibido aqui.
+                                O organizador pode usar o download pela API se
+                                precisar do arquivo original.
+                            </p>
+                        ))}
                 </div>
             </ModalShell>
         </AppShell>

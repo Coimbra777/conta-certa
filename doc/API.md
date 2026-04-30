@@ -101,7 +101,12 @@ Alterar ou remover quem já está na lista: **`PATCH`/`DELETE .../participants/{
 PATCH /api/v1/charges/{id}/validate
 PATCH /api/v1/charges/{id}/reject
 GET   /api/v1/charges/{id}/proof
+GET   /api/v1/charges/{id}/proofs/latest/view
 ```
+
+`GET …/proof` faz download (disposition típica de anexo). **`GET …/proofs/latest/view`** envia o mesmo arquivo com **`Content-Disposition: inline`** para visualização no navegador (imagens/PDF), sempre após autorização — não expõe path interno do storage.
+
+Objeto **`Charge`** (quando `paymentProofs` vier eager-loaded) pode incluir **`has_proof`**, **`proof_uploaded_at`** (ISO 8601 do último comprovante) e **`proof_status`**.
 
 `reject` envia corpo **`reason` obrigatório** (string, máx. 2000 caracteres).
 
@@ -173,6 +178,7 @@ POST  /api/v1/public/expenses/{hash}/participants
 PATCH /api/v1/public/charges/{id}/validate
 PATCH /api/v1/public/charges/{id}/reject
 GET   /api/v1/public/charges/{id}/proof
+GET   /api/v1/public/charges/{id}/proofs/latest/view
 ```
 
 **submit-proof** — `multipart/form-data`: `name`, `phone`, `proof` (arquivo).

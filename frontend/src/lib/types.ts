@@ -41,6 +41,8 @@ export interface Participant {
     phone: string;
     amount: number;
     status: ApiStatus;
+    /** Indica se há arquivo de comprovante no servidor (última versão). */
+    hasProof?: boolean;
     proofUrl?: string;
     proofSentAt?: string;
     rejectionReason?: string;

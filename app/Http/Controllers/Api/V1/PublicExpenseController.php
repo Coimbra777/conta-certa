@@ -24,12 +24,14 @@ use App\Models\Charge;
 use App\Models\Expense;
 use App\Services\ExpenseService;
 use App\Services\PublicExpenseCreatorService;
+use App\Support\ChargeProofHttpResponse;
 use App\Support\PublicParticipantChargeResolver;
 use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PublicExpenseController extends Controller
@@ -285,6 +287,13 @@ class PublicExpenseController extends Controller
         $downloadName = SafeDownloadFilename::forProof((string) $proof->mime_type, $proof->original_filename);
 
         return Storage::disk('local')->download($proof->file_path, $downloadName);
+    }
+
+    public function viewLatestProof(Request $request, Charge $charge): BinaryFileResponse|JsonResponse
+    {
+        $this->authorizeManage($request, $charge->expense);
+
+        return ChargeProofHttpResponse::latest($charge, true);
     }
 
     private function messageForValidateParticipantStatus(string $status): string

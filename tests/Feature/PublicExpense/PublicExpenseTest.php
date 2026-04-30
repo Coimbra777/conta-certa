@@ -654,4 +654,39 @@ class PublicExpenseTest extends TestCase
             'phone' => '11000000002',
         ])->assertStatus(422)->assertJsonPath('message', $msg);
     }
+
+    public function test_public_manage_can_view_latest_proof_inline(): void
+    {
+        Storage::fake('local');
+        $this->createExpenseWithCharges();
+
+        $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
+            'name' => 'Maria Silva',
+            'phone' => '11000000002',
+        ])->assertOk();
+
+        $file = ProofUploadFixture::jpegUploadedFile('inline-view.jpg');
+        $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
+            'name' => 'Maria Silva',
+            'phone' => '11000000002',
+            'proof' => $file,
+        ])->assertStatus(201);
+
+        $charge = Charge::query()->where('expense_id', Expense::where('public_hash', 'test-hash-123')->value('id'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
+            ->firstOrFail();
+
+        $view = $this->get("/api/v1/public/charges/{$charge->id}/proofs/latest/view", [
+            'X-Manage-Token' => 'manage-token-secret',
+        ]);
+
+        $view->assertOk()->assertHeader('content-type', 'image/jpeg');
+        $this->assertStringContainsStringIgnoringCase(
+            'inline',
+            (string) $view->headers->get('Content-Disposition'),
+        );
+
+        $this->get("/api/v1/public/charges/{$charge->id}/proofs/latest/view")
+            ->assertStatus(403);
+    }
 }

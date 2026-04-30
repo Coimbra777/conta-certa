@@ -229,4 +229,50 @@ class PaymentValidationTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.status', 'proof_sent');
     }
+
+    public function test_expense_owner_can_view_latest_proof_inline(): void
+    {
+        Storage::fake('local');
+
+        [$admin, , $charge1] = $this->createExpenseSetup();
+
+        Storage::disk('local')->put('payment-proofs/1/proof.jpg', 'fake-jpeg-bytes');
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->get("/api/v1/charges/{$charge1->id}/proofs/latest/view");
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'image/jpeg');
+        $this->assertStringContainsStringIgnoringCase(
+            'inline',
+            (string) $response->headers->get('Content-Disposition'),
+        );
+    }
+
+    public function test_non_owner_cannot_view_latest_proof_inline(): void
+    {
+        Storage::fake('local');
+
+        [, , $charge1] = $this->createExpenseSetup();
+
+        Storage::disk('local')->put('payment-proofs/1/proof.jpg', 'x');
+
+        $other = User::factory()->create();
+
+        $this->actingAs($other, 'sanctum')
+            ->get("/api/v1/charges/{$charge1->id}/proofs/latest/view")
+            ->assertStatus(403);
+    }
+
+    public function test_view_latest_proof_returns_404_when_file_missing_on_disk(): void
+    {
+        Storage::fake('local');
+
+        [$admin, , $charge1] = $this->createExpenseSetup();
+
+        $this->actingAs($admin, 'sanctum')
+            ->get("/api/v1/charges/{$charge1->id}/proofs/latest/view")
+            ->assertStatus(404)
+            ->assertJsonPath('code', 'NOT_FOUND');
+    }
 }

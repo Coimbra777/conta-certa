@@ -11,11 +11,13 @@ use App\Http\Requests\Api\V1\RejectChargeRequest;
 use App\Http\Resources\ChargeResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Charge;
+use App\Support\ChargeProofHttpResponse;
 use App\Support\ExpenseAuthorizer;
 use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ChargeValidationController extends Controller
@@ -58,6 +60,13 @@ class ChargeValidationController extends Controller
         $downloadName = SafeDownloadFilename::forProof((string) $proof->mime_type, $proof->original_filename);
 
         return Storage::disk('local')->download($proof->file_path, $downloadName);
+    }
+
+    public function viewLatestProof(Charge $charge): BinaryFileResponse|JsonResponse
+    {
+        $this->authorizeExpenseOwner($charge);
+
+        return ChargeProofHttpResponse::latest($charge, true);
     }
 
     /**
