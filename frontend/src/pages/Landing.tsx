@@ -22,11 +22,8 @@ export default function Landing() {
                     ContaCerta
                 </Link>
                 <div className="flex items-center gap-3">
-                    {loading ? (
-                        <span className="text-sm font-bold text-muted-foreground">Carregando...</span>
-                    ) : isLoggedIn ? (
+                    {loading ? null : isLoggedIn ? (
                         <>
-                            <Link to="/dashboard" className="font-bold hidden sm:inline">Minhas cobranças</Link>
                             <button
                                 type="button"
                                 onClick={() => void logout()}
@@ -43,6 +40,12 @@ export default function Landing() {
                                 className="bg-foreground text-background border-4 border-foreground px-4 py-2 rounded-lg font-bold brutal-press brutal-press-sm"
                             >
                                 Criar conta
+                            </Link>
+                            <Link
+                                to="/demo"
+                                className="font-bold hidden sm:inline"
+                            >
+                                Ver demonstração
                             </Link>
                         </>
                     )}
@@ -106,12 +109,6 @@ export default function Landing() {
                                 </Link>
                             </>
                         )}
-                        <Link
-                            to="/demo"
-                            className="bg-card text-foreground font-bold text-base sm:text-lg px-6 sm:px-8 py-4 border-4 border-foreground rounded-xl brutal-press brutal-press-md text-center w-full sm:w-auto"
-                        >
-                            Ver demonstração
-                        </Link>
                     </div>
                 </div>
 

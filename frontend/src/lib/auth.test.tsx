@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+    fireEvent,
+    render,
+    screen,
+    waitFor,
+    within,
+} from "@testing-library/react";
 import {
     MemoryRouter,
     Route,
@@ -76,6 +82,10 @@ function realUser(): User {
         name: "Ana",
         email: "ana@contacerta.dev",
     };
+}
+
+function landingNav() {
+    return within(screen.getByRole("navigation"));
 }
 
 describe("auth flow", () => {
@@ -164,28 +174,68 @@ describe("auth flow", () => {
         expect(meSpy).not.toHaveBeenCalled();
     });
 
-    it("landing mostra ações de usuário logado", async () => {
+    it("landing mostra login, cadastro e demo no header para visitante deslogado", async () => {
+        renderAuthApp("/");
+
+        await waitFor(() => {
+            expect(
+                landingNav().getByRole("link", { name: /^entrar$/i }),
+            ).toBeInTheDocument();
+        });
+        expect(
+            landingNav().getByRole("link", { name: /criar conta/i }),
+        ).toBeInTheDocument();
+        expect(
+            landingNav().getByRole("link", { name: /ver demonstração/i }),
+        ).toBeInTheDocument();
+        expect(
+            landingNav().queryByRole("button", { name: /^sair$/i }),
+        ).not.toBeInTheDocument();
+    });
+
+    it("landing mostra apenas sair no header para usuário logado", async () => {
         localStorage.setItem(AUTH_STORAGE_KEY, "persisted-token");
         vi.spyOn(api, "me").mockResolvedValue(realUser());
 
         renderAuthApp("/");
 
         await waitFor(() => {
-            expect(screen.getByText(/você está logado/i)).toBeInTheDocument();
+            expect(
+                landingNav().getByRole("button", { name: /^sair$/i }),
+            ).toBeInTheDocument();
         });
         expect(
-            screen.getAllByRole("link", {
-                name: /ir para minhas cobranças/i,
-            }).length,
-        ).toBeGreaterThan(0);
+            landingNav().queryByRole("link", { name: /^entrar$/i }),
+        ).not.toBeInTheDocument();
         expect(
-            screen.getAllByRole("link", {
-                name: /criar nova cobrança/i,
-            }).length,
-        ).toBeGreaterThan(0);
+            landingNav().queryByRole("link", { name: /criar conta/i }),
+        ).not.toBeInTheDocument();
         expect(
-            screen.getAllByRole("button", { name: /sair/i }).length,
-        ).toBeGreaterThan(0);
+            landingNav().queryByRole("link", { name: /ver demonstração/i }),
+        ).not.toBeInTheDocument();
+    });
+
+    it("landing não mostra ações erradas no header durante loading", async () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, "persisted-token");
+
+        vi.spyOn(api, "me").mockImplementation(
+            () => new Promise(() => undefined),
+        );
+
+        renderAuthApp("/");
+
+        expect(
+            landingNav().queryByRole("link", { name: /^entrar$/i }),
+        ).not.toBeInTheDocument();
+        expect(
+            landingNav().queryByRole("link", { name: /criar conta/i }),
+        ).not.toBeInTheDocument();
+        expect(
+            landingNav().queryByRole("link", { name: /ver demonstração/i }),
+        ).not.toBeInTheDocument();
+        expect(
+            landingNav().queryByRole("button", { name: /^sair$/i }),
+        ).not.toBeInTheDocument();
     });
 
     it("login redireciona quando já existe sessão", async () => {
@@ -431,7 +481,10 @@ describe("auth flow", () => {
             expect(localStorage.getItem(DEMO_STORAGE_KEY)).toBeNull();
         });
         expect(
-            screen.getAllByRole("link", { name: /^entrar$/i }).length,
-        ).toBeGreaterThan(0);
+            landingNav().getByRole("link", { name: /^entrar$/i }),
+        ).toBeInTheDocument();
+        expect(
+            landingNav().getByRole("link", { name: /ver demonstração/i }),
+        ).toBeInTheDocument();
     });
 });
