@@ -133,6 +133,38 @@ class StorePublicExpenseTest extends TestCase
             ->assertJsonPath('data.amount', 100);
     }
 
+    public function test_public_validate_participant_accepts_valid_landline_phone(): void
+    {
+        $expense = app(PublicExpenseCreatorService::class)->create([
+            ...$this->baseCreatorPayload(),
+            'participants' => [
+                ['name' => 'Beto', 'phone' => '1133334444'],
+            ],
+        ]);
+
+        $this->postJson("/api/v1/public/expenses/{$expense->public_hash}/validate-participant", [
+            'name' => 'Beto',
+            'phone' => '(11) 3333-4444',
+        ])->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_public_validate_participant_rejects_invalid_phone_format(): void
+    {
+        $expense = app(PublicExpenseCreatorService::class)->create([
+            ...$this->baseCreatorPayload(),
+            'participants' => [
+                ['name' => 'Beto', 'phone' => '11911112222'],
+            ],
+        ]);
+
+        $this->postJson("/api/v1/public/expenses/{$expense->public_hash}/validate-participant", [
+            'name' => 'Beto',
+            'phone' => '1193334444',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors('phone');
+    }
+
     public function test_same_normalized_phone_on_two_expenses_creates_two_participants(): void
     {
         $due = now()->addDays(5)->format('Y-m-d');

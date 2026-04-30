@@ -41,16 +41,16 @@ class PaymentValidationTest extends TestCase
         $epAdmin = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => $admin->name,
-            'phone' => '11000000001',
-            'phone_normalized' => '11000000001',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
             'amount' => 50.00,
         ]);
 
         $epMaria = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Maria',
-            'phone' => '11000000002',
-            'phone_normalized' => '11000000002',
+            'phone' => '11900000002',
+            'phone_normalized' => '11900000002',
             'amount' => 50.00,
         ]);
 
@@ -186,8 +186,8 @@ class PaymentValidationTest extends TestCase
         $epExtra = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Pedro',
-            'phone' => '11000000003',
-            'phone_normalized' => '11000000003',
+            'phone' => '11900000003',
+            'phone_normalized' => '11900000003',
             'amount' => 25.00,
         ]);
 
@@ -222,7 +222,7 @@ class PaymentValidationTest extends TestCase
         $file = ProofUploadFixture::jpegUploadedFile('new_proof.jpg');
         $response = $this->post('/api/v1/public/expenses/val-hash-123/submit-proof', [
             'name' => 'Maria',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ]);
 

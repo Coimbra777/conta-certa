@@ -4,6 +4,25 @@ export function digitsOnly(s: string): string {
 }
 
 export const GENERIC_BRAZIL_PHONE_PLACEHOLDER = "(11) 99999-9999";
+export const BRAZIL_PHONE_ERROR_MESSAGE =
+    "Telefone inválido. Use um número com DDD.";
+
+function isRepeatedDigits(value: string): boolean {
+    return /^(\d)\1+$/.test(value);
+}
+
+export function isValidBrazilPhone(input: string): boolean {
+    const digits = digitsOnly(input);
+
+    if (
+        (digits.length !== 10 && digits.length !== 11) ||
+        isRepeatedDigits(digits)
+    ) {
+        return false;
+    }
+
+    return digits.length === 11 ? digits[2] === "9" : digits[2] !== "9";
+}
 
 /** Telefone BR: (DD) 99999-9999 ou (DD) 3333-4444. */
 export function formatBrazilPhoneDisplay(input: string): string {

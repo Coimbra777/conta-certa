@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Http\Requests\Concerns\NormalizesParticipantFormInput;
+use App\Rules\BrazilPhone;
 use App\Support\PhoneNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -19,7 +20,7 @@ class StorePublicExpenseRequest extends FormRequest
     {
         return [
             'owner_name' => ['required', 'string', 'max:255'],
-            'owner_phone' => ['required', 'string', 'max:32'],
+            'owner_phone' => ['required', 'string', 'max:32', new BrazilPhone()],
             'description' => ['required', 'string', 'max:500'],
             'amount' => ['required', 'numeric', 'min:1'],
             'pix_key' => ['required', 'string', 'max:255'],
@@ -28,7 +29,7 @@ class StorePublicExpenseRequest extends FormRequest
             'include_owner_as_participant' => ['sometimes', 'boolean'],
             'participants' => ['sometimes', 'array'],
             'participants.*.name' => ['required_with:participants.*.phone', 'string', 'max:255'],
-            'participants.*.phone' => ['required_with:participants.*.name', 'string', 'max:32'],
+            'participants.*.phone' => ['required_with:participants.*.name', 'string', 'max:32', new BrazilPhone()],
             'participants_text' => ['nullable', 'string', 'max:20000'],
         ];
     }
@@ -54,7 +55,7 @@ class StorePublicExpenseRequest extends FormRequest
         if ($this->boolean('include_owner_as_participant')) {
             $ownerPhone = PhoneNormalizer::digits((string) $this->input('owner_phone'));
             $ownerName = trim((string) $this->input('owner_name'));
-            if ($ownerPhone !== '' && strlen($ownerPhone) >= 10 && $ownerName !== '' && ! isset($seen[$ownerPhone])) {
+            if ($ownerName !== '' && PhoneNormalizer::isValid($ownerPhone) && ! isset($seen[$ownerPhone])) {
                 array_unshift($merged, ['name' => $ownerName, 'phone' => $ownerPhone]);
                 $seen[$ownerPhone] = true;
             }

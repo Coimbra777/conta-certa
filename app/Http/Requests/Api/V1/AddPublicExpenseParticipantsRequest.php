@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Http\Requests\Concerns\NormalizesParticipantFormInput;
+use App\Rules\BrazilPhone;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AddPublicExpenseParticipantsRequest extends FormRequest
@@ -19,7 +20,7 @@ class AddPublicExpenseParticipantsRequest extends FormRequest
         return [
             'participants' => ['sometimes', 'array'],
             'participants.*.name' => ['required_with:participants.*.phone', 'string', 'max:255'],
-            'participants.*.phone' => ['required_with:participants.*.name', 'string', 'max:32'],
+            'participants.*.phone' => ['required_with:participants.*.name', 'string', 'max:32', new BrazilPhone()],
             'participants_text' => ['nullable', 'string', 'max:20000'],
         ];
     }

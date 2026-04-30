@@ -40,7 +40,7 @@ class ParticipantListParser
         if (preg_match('/^(.+?)[\s\-–—:,]+([\d\s().+\/-]+)$/u', $line, $m)) {
             $name = trim(preg_replace('/[.:,;\-–—]+$/u', '', trim($m[1]))) ?: trim($m[1]);
             $phone = PhoneNormalizer::digits($m[2]);
-            if ($name !== '' && strlen($phone) >= 10) {
+            if ($name !== '' && PhoneNormalizer::isValid($phone)) {
                 return ['name' => $name, 'phone' => $phone];
             }
         }
@@ -48,7 +48,7 @@ class ParticipantListParser
         if (preg_match('/^(.+?)\s+(\(\d{2}\)[\d\s().+\/-]+|\d[\d\s().+\/-]{8,})$/u', $line, $m)) {
             $name = trim(preg_replace('/[.:,;\-–—]+$/u', '', trim($m[1]))) ?: trim($m[1]);
             $phone = PhoneNormalizer::digits($m[2]);
-            if ($name !== '' && strlen($phone) >= 10) {
+            if ($name !== '' && PhoneNormalizer::isValid($phone)) {
                 return ['name' => $name, 'phone' => $phone];
             }
         }

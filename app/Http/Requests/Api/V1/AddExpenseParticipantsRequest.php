@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Exceptions\HttpApiException;
 use App\Models\Expense;
+use App\Rules\BrazilPhone;
 use App\Support\ExpenseAuthorizer;
 use App\Support\ParticipantPhoneUniqueness;
 use App\Support\PhoneNormalizer;
@@ -29,7 +30,7 @@ class AddExpenseParticipantsRequest extends FormRequest
         return [
             'participants' => ['required', 'array', 'min:1'],
             'participants.*.name' => ['required', 'string', 'max:255'],
-            'participants.*.phone' => ['required', 'string', 'max:32'],
+            'participants.*.phone' => ['required', 'string', 'max:32', new BrazilPhone()],
             'participants.*.amount' => ['required', 'numeric', 'min:0.01'],
         ];
     }
@@ -41,14 +42,9 @@ class AddExpenseParticipantsRequest extends FormRequest
             if (! is_array($p)) {
                 continue;
             }
-            $phone = PhoneNormalizer::digits($p['phone'] ?? '');
-            $name = trim((string) ($p['name'] ?? ''));
-            if ($phone === '' || strlen($phone) < 10 || $name === '') {
-                continue;
-            }
             $normalized[] = [
-                'name' => $name,
-                'phone' => $phone,
+                'name' => trim((string) ($p['name'] ?? '')),
+                'phone' => PhoneNormalizer::digits($p['phone'] ?? ''),
                 'amount' => isset($p['amount']) ? round((float) $p['amount'], 2) : null,
             ];
         }
@@ -80,7 +76,7 @@ class AddExpenseParticipantsRequest extends FormRequest
                 }
                 $phone = PhoneNormalizer::digits($p['phone'] ?? '');
                 $name = trim((string) ($p['name'] ?? ''));
-                if ($phone === '' || strlen($phone) < 10 || $name === '') {
+                if ($name === '' || ! PhoneNormalizer::isValid($phone)) {
                     continue;
                 }
                 if (isset($seenInPayload[$phone])) {

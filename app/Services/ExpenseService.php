@@ -105,7 +105,7 @@ class ExpenseService
                 foreach ($participants as $p) {
                     $phone = PhoneNormalizer::digits($p['phone'] ?? '');
                     $name = trim((string) ($p['name'] ?? ''));
-                    if ($phone === '' || strlen($phone) < 10 || $name === '') {
+                    if ($name === '' || ! PhoneNormalizer::isValid($phone)) {
                         throw new \DomainException(
                             'Informe nome e telefone válidos para cada participante novo.'
                         );
@@ -333,7 +333,7 @@ class ExpenseService
                     ? PhoneNormalizer::digits((string) $data['phone'])
                     : (string) $participant->phone_normalized;
 
-                if ($name === '' || strlen($phoneDigits) < 10) {
+                if ($name === '' || ! PhoneNormalizer::isValid($phoneDigits)) {
                     throw new \DomainException('Informe nome e telefone válidos.');
                 }
 
@@ -425,7 +425,7 @@ class ExpenseService
         foreach ($participants as $p) {
             $phone = PhoneNormalizer::digits($p['phone'] ?? '');
             $name = trim((string) ($p['name'] ?? ''));
-            if ($phone === '' || strlen($phone) < 10 || $name === '') {
+            if ($name === '' || ! PhoneNormalizer::isValid($phone)) {
                 continue;
             }
 

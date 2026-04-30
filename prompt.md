@@ -1,86 +1,86 @@
-Corrigir exposição/uso indevido de dados reais e texto do organizador na página do participante.
+Corrigir testes que falharam após a implementação da validação de telefone brasileiro.
 
-Problemas:
+Contexto:
+Implementamos validação correta de telefone BR:
 
-1. Na página do participante ainda aparece o nome do organizador da cobrança.
-2. Em labels/placeholders/exemplos de telefone está aparecendo um número real do usuário.
-3. Todo campo de telefone deve usar exemplo genérico.
+- celular: 11 dígitos e terceiro dígito = 9
+- fixo: 10 dígitos e terceiro dígito != 9
 
-Tarefas:
+Problema atual:
+Alguns testes estão usando telefones inválidos segundo a nova regra, por exemplo:
+"11888887777"
 
-## 1. Página do participante sem nome do organizador
+Esse número tem 11 dígitos, mas o terceiro dígito é "8", então não é um celular válido.
 
-Na página pública do participante, não exibir o nome real do organizador da cobrança.
+Erro atual:
+Expected status 200, but got 422 (Telefone inválido)
 
-Regras:
+---
 
-- Não mostrar "Organizado por {nome}" na visão do participante.
-- Usar texto genérico:
-  "Organizado pelo responsável da cobrança"
-- Se já houver modo gestor com manage_token, avaliar se o nome pode aparecer apenas no modo gestor; para visitante/participante comum, manter genérico.
-- Garantir que "Organizado por Organizador" também não volte.
+## Tarefa
 
-Arquivos prováveis:
+1. Revisar todos os testes que usam telefone:
 
-- frontend/src/pages/PublicExpense.tsx
-- resources/views ou componentes relacionados ao link público
-- testes da página pública
+- tests/Feature/\*
+- tests/Unit/\*
+- factories
+- seeders (se houver)
 
-## 2. Remover número real de telefone de labels/placeholders
+2. Substituir telefones inválidos por válidos:
 
-Buscar em todo o frontend e documentação qualquer número real usado como exemplo de telefone.
+Para celular:
 
-Substituir por exemplos genéricos:
+- usar padrão: DDD + 9 + 8 dígitos
+- exemplos válidos:
+    - "11988887777"
+    - "11999990000"
+    - "(11) 98888-7777"
 
-- Placeholder preferencial:
-  "(11) 99999-9999"
+Para fixo (se o sistema permitir):
 
-Ou, se quiser evitar DDD real:
-"(00) 00000-0000"
+- exemplos:
+    - "1133334444"
 
-Regras:
+3. Regra:
 
-- Nenhum placeholder, label, helper text, teste visual ou mensagem deve conter número real do usuário.
-- Isso vale para:
-    - formulário de cadastro;
-    - criação de cobrança;
-    - validação de participante;
-    - listagem/demo;
-    - documentação se houver exemplo sensível.
-- Manter máscara visual funcionando.
-- Não alterar normalização interna do telefone.
+- NÃO usar números com 11 dígitos que não começam com 9 no terceiro dígito
+- NÃO usar números curtos
+- NÃO usar números inválidos tipo "123"
 
-Arquivos prováveis:
+4. Ajustar especificamente o teste que falhou:
 
-- frontend/src/pages/PublicExpense.tsx
-- frontend/src/pages/NewExpense.tsx
-- frontend/src/pages/Auth.tsx
-- frontend/src/components/\*
-- frontend/src/lib/\*
-- README.md
-- doc/API.md
+Arquivo:
+tests/Feature/Expense/ExpenseTest.php
 
-## 3. Testes
+Trocar:
+"11888887777"
 
-Atualizar/adicionar testes:
+Por:
+"11988887777"
 
-- página pública do participante mostra:
-  "Organizado pelo responsável da cobrança"
-- página pública do participante não mostra nome real do organizador
-- nenhum componente público usa telefone real como placeholder
-- campos de telefone usam placeholder genérico
-- testes existentes continuam passando
+5. Garantir consistência:
+
+- todos os testes devem usar telefones válidos
+- manter formato simples (sem máscara) se já for padrão dos testes
+
+---
+
+## Testes
 
 Executar:
 
-- npm run test
-- npm run build
-- php artisan test, se ambiente permitir
+php artisan test
 
-Entrega final:
+Critério:
 
-- arquivos alterados
-- onde o nome do organizador foi removido
-- quais placeholders de telefone foram trocados
-- testes executados
-- impactos
+- 100% dos testes passando
+- nenhum erro de validação de telefone em cenários que deveriam ser válidos
+
+---
+
+## Entrega
+
+- lista de arquivos alterados
+- quais telefones foram corrigidos
+- confirmação de testes passando
+- se encontrou outros casos semelhantes

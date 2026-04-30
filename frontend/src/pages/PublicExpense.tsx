@@ -20,9 +20,11 @@ import {
     isDueDateBeforeToday,
 } from "@/lib/format";
 import {
+    BRAZIL_PHONE_ERROR_MESSAGE,
     digitsOnly,
     formatBrazilPhoneDisplay,
     GENERIC_BRAZIL_PHONE_PLACEHOLDER,
+    isValidBrazilPhone,
 } from "@/lib/inputMasks";
 import {
     getPublicManageToken,
@@ -65,7 +67,7 @@ export default function PublicExpense({
     const [submitting, setSubmitting] = useState(false);
 
     const phoneDigits = digitsOnly(phone);
-    const phoneComplete = phoneDigits.length >= 10 && phoneDigits.length <= 11;
+    const phoneValid = isValidBrazilPhone(phone);
     /** Botão principal: só exige campos preenchidos (validação de formato na submissão). */
     const canSubmitIdentify =
         name.trim().length > 0 && phoneDigits.length > 0 && !identifying;
@@ -108,10 +110,8 @@ export default function PublicExpense({
         e.preventDefault();
         setIdentifyError(null);
         if (!name.trim()) return;
-        if (!phoneComplete) {
-            setIdentifyError(
-                "Informe um telefone com DDD e número completos (10 ou 11 dígitos).",
-            );
+        if (!phoneValid) {
+            setIdentifyError(BRAZIL_PHONE_ERROR_MESSAGE);
             return;
         }
         setIdentifying(true);
@@ -135,10 +135,8 @@ export default function PublicExpense({
 
     const continueDemo = async () => {
         if (!isPublicExpenseUsingMock(hash)) return;
-        if (!name.trim() || !phoneComplete) {
-            setIdentifyError(
-                "Informe um telefone com DDD e número completos (10 ou 11 dígitos).",
-            );
+        if (!name.trim() || !phoneValid) {
+            setIdentifyError(BRAZIL_PHONE_ERROR_MESSAGE);
             return;
         }
         setIdentifyError(null);
@@ -378,6 +376,13 @@ export default function PublicExpense({
                                     );
                                     setIdentifyError(null);
                                 }}
+                                onBlur={() => {
+                                    if (phoneDigits.length > 0 && !phoneValid) {
+                                        setIdentifyError(
+                                            BRAZIL_PHONE_ERROR_MESSAGE,
+                                        );
+                                    }
+                                }}
                                 placeholder={GENERIC_BRAZIL_PHONE_PLACEHOLDER}
                             />
                         </label>
@@ -410,7 +415,7 @@ export default function PublicExpense({
                                     disabled={
                                         identifying ||
                                         !name.trim() ||
-                                        !phoneComplete
+                                        !phoneValid
                                     }
                                     onClick={continueDemo}
                                     className="mt-3 w-full border-4 border-foreground bg-background py-3.5 rounded-xl font-bold uppercase tracking-wide brutal-press brutal-press-md disabled:opacity-50 min-h-[48px]"

@@ -6,9 +6,11 @@ import { useAuth } from "@/lib/auth";
 import { PIX_KEY_LABEL, type PixKeyType } from "@/lib/types";
 import { formatBRL } from "@/lib/format";
 import {
+    BRAZIL_PHONE_ERROR_MESSAGE,
     digitsOnly,
     formatBrazilPhoneDisplay,
     GENERIC_BRAZIL_PHONE_PLACEHOLDER,
+    isValidBrazilPhone,
     parseMoneyInput,
 } from "@/lib/inputMasks";
 import {
@@ -65,6 +67,7 @@ export default function NewExpense() {
     const [participants, setParticipants] = useState<DraftParticipant[]>([newP(), newP()]);
     const [submitting, setSubmitting] = useState(false);
     const [includeSelf, setIncludeSelf] = useState(false);
+    const [touchedPhones, setTouchedPhones] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         if (includeSelf && user?.name) {
@@ -117,9 +120,19 @@ export default function NewExpense() {
 
     const updateP = (id: string, patch: Partial<DraftParticipant>) =>
         setParticipants((arr) => arr.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    const touchPhone = (id: string) =>
+        setTouchedPhones((current) => ({ ...current, [id]: true }));
     const removeP = (id: string) => {
         if (id.startsWith(OWNER_ROW_PREFIX)) setIncludeSelf(false);
         setParticipants((arr) => arr.filter((p) => p.id !== id));
+    };
+
+    const phoneError = (phone: string): string | null => {
+        if (digitsOnly(phone).length === 0 || isValidBrazilPhone(phone)) {
+            return null;
+        }
+
+        return BRAZIL_PHONE_ERROR_MESSAGE;
     };
 
     const canStep1 = title.trim().length >= 2 && totalNum > 0;
@@ -243,7 +256,14 @@ export default function NewExpense() {
                                                 <Field label={`Nome ${i + 1}`}>
                                                     <input className="brutal-input" value={p.name} onChange={(e) => updateP(p.id, { name: e.target.value })} placeholder="Nome" />
                                                 </Field>
-                                                <Field label="Telefone">
+                                                <Field
+                                                    label="Telefone"
+                                                    error={
+                                                        touchedPhones[p.id]
+                                                            ? phoneError(p.phone)
+                                                            : null
+                                                    }
+                                                >
                                                     <input
                                                         className="brutal-input"
                                                         value={p.phone}
@@ -254,6 +274,7 @@ export default function NewExpense() {
                                                                 ),
                                                             })
                                                         }
+                                                        onBlur={() => touchPhone(p.id)}
                                                         placeholder={
                                                             GENERIC_BRAZIL_PHONE_PLACEHOLDER
                                                         }
@@ -364,11 +385,24 @@ export default function NewExpense() {
     );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+    label,
+    children,
+    error,
+}: {
+    label: string;
+    children: React.ReactNode;
+    error?: string | null;
+}) {
     return (
         <label className="flex flex-col gap-1.5">
             <span className="text-xs font-bold uppercase tracking-widest">{label}</span>
             {children}
+            {error && (
+                <span className="text-sm font-medium text-status-rejected-fg">
+                    {error}
+                </span>
+            )}
         </label>
     );
 }

@@ -42,16 +42,16 @@ class PublicExpenseTest extends TestCase
         $ep1 = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Joao Admin',
-            'phone' => '11000000001',
-            'phone_normalized' => '11000000001',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
             'amount' => 50.00,
         ]);
 
         $ep2 = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
-            'phone_normalized' => '11000000002',
+            'phone' => '11900000002',
+            'phone_normalized' => '11900000002',
             'amount' => 50.00,
         ]);
 
@@ -101,8 +101,8 @@ class PublicExpenseTest extends TestCase
         $ep = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Unico Participante',
-            'phone' => '11000000001',
-            'phone_normalized' => '11000000001',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
             'amount' => 500.00,
         ]);
 
@@ -216,7 +216,7 @@ class PublicExpenseTest extends TestCase
         $file = ProofUploadFixture::jpegUploadedFile('comprovante.jpg');
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ]);
 
@@ -225,7 +225,7 @@ class PublicExpenseTest extends TestCase
             ->assertJsonPath('data.status', 'proof_sent');
 
         $charge = Charge::query()
-            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11900000002'))
             ->first();
         $this->assertNotNull($charge);
         $this->assertDatabaseHas('payment_proofs', [
@@ -244,7 +244,7 @@ class PublicExpenseTest extends TestCase
 
         $response = $this->postJson('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ]);
 
@@ -261,7 +261,7 @@ class PublicExpenseTest extends TestCase
 
         $response = $this->postJson('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ]);
 
@@ -278,7 +278,7 @@ class PublicExpenseTest extends TestCase
         $file = ProofUploadFixture::jpegUploadedFile('comprovante.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ])->assertStatus(201);
 
@@ -297,7 +297,7 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -313,7 +313,7 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Errada',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Participante não encontrado nesta despesa.');
@@ -326,13 +326,13 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])->assertOk();
 
         $file = ProofUploadFixture::jpegUploadedFile('comp.jpg');
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ]);
 
@@ -343,11 +343,11 @@ class PublicExpenseTest extends TestCase
 
         $this->assertDatabaseHas('expense_participants', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ]);
 
         $charge = Charge::query()->where('expense_id', Expense::where('public_hash', 'test-hash-123')->value('id'))
-            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11900000002'))
             ->first();
         $this->assertNotNull($charge);
         $this->assertSame('proof_sent', $charge->status);
@@ -363,19 +363,19 @@ class PublicExpenseTest extends TestCase
 
         $payload = [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => ProofUploadFixture::jpegUploadedFile('a.jpg'),
         ];
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])->assertOk();
 
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', $payload)->assertStatus(201);
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])
             ->assertOk()
             ->assertJsonPath('data.status', 'proof_sent')
@@ -398,7 +398,7 @@ class PublicExpenseTest extends TestCase
         $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ])->assertStatus(201);
         $this->patchJson("/api/v1/public/charges/{$charge2->id}/validate", [
@@ -407,7 +407,7 @@ class PublicExpenseTest extends TestCase
 
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => ProofUploadFixture::jpegUploadedFile('n.jpg'),
         ]);
 
@@ -425,7 +425,7 @@ class PublicExpenseTest extends TestCase
 
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => ProofUploadFixture::jpegUploadedFile('primeiro.jpg'),
         ])->assertStatus(201);
 
@@ -439,7 +439,7 @@ class PublicExpenseTest extends TestCase
 
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => ProofUploadFixture::jpegUploadedFile('segundo.jpg'),
         ])->assertStatus(201);
 
@@ -455,13 +455,13 @@ class PublicExpenseTest extends TestCase
 
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Atualizada',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => ProofUploadFixture::jpegUploadedFile('comp.jpg'),
         ])->assertStatus(422)
             ->assertJsonPath('message', 'Participante não encontrado nesta despesa.');
 
         $this->assertDatabaseHas('expense_participants', [
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'name' => 'Maria Silva',
         ]);
     }
@@ -568,7 +568,7 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
             'participants' => [
-                ['name' => 'Duplicado', 'phone' => '11000000002'],
+                ['name' => 'Duplicado', 'phone' => '11900000002'],
             ],
         ])->assertStatus(422);
     }
@@ -667,7 +667,7 @@ class PublicExpenseTest extends TestCase
         $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
@@ -682,7 +682,7 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
     }
 
@@ -707,18 +707,18 @@ class PublicExpenseTest extends TestCase
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
         ])->assertOk();
 
         $file = ProofUploadFixture::jpegUploadedFile('inline-view.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
-            'phone' => '11000000002',
+            'phone' => '11900000002',
             'proof' => $file,
         ])->assertStatus(201);
 
         $charge = Charge::query()->where('expense_id', Expense::where('public_hash', 'test-hash-123')->value('id'))
-            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11900000002'))
             ->firstOrFail();
 
         $view = $this->get("/api/v1/public/charges/{$charge->id}/proofs/latest/view", [

@@ -89,6 +89,19 @@ describe("PublicExpense", () => {
         expect(tel).toHaveValue(GENERIC_BRAZIL_PHONE_PLACEHOLDER);
     });
 
+    it("shows a friendly validation message for an invalid phone on blur", async () => {
+        vi.spyOn(api, "getPublicExpense").mockResolvedValue(baseExpense());
+        renderRoute("/p/other-hash");
+        const tel = await screen.findByPlaceholderText(
+            GENERIC_BRAZIL_PHONE_PLACEHOLDER,
+        );
+        fireEvent.change(tel, { target: { value: "1193334444" } });
+        fireEvent.blur(tel);
+        expect(
+            await screen.findByText(/Telefone inválido\. Use um número com DDD\./i),
+        ).toBeInTheDocument();
+    });
+
     it("public participant view keeps organizer copy generic even with real name", async () => {
         vi.spyOn(api, "getPublicExpense").mockResolvedValue(
             baseExpense({ organizerName: "Org" }),

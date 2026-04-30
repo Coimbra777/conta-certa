@@ -14,9 +14,11 @@ import {
 } from "@/lib/format";
 import { CurrencyBrInput } from "@/components/CurrencyBrInput";
 import {
+    BRAZIL_PHONE_ERROR_MESSAGE,
     digitsOnly,
     formatBrazilPhoneDisplay,
     GENERIC_BRAZIL_PHONE_PLACEHOLDER,
+    isValidBrazilPhone,
     parseMoneyInput,
 } from "@/lib/inputMasks";
 import { setPublicManageToken } from "@/lib/publicManageToken";
@@ -45,6 +47,10 @@ export default function PublicNewExpense() {
     const [includeSelf, setIncludeSelf] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [ownerPhoneTouched, setOwnerPhoneTouched] = useState(false);
+    const [participantPhoneTouched, setParticipantPhoneTouched] = useState<
+        Record<number, boolean>
+    >({});
     const [created, setCreated] = useState<{
         publicHash: string;
         participantUrl: string;
@@ -53,38 +59,49 @@ export default function PublicNewExpense() {
     } | null>(null);
 
     const ownerDigits = digitsOnly(ownerPhone);
+    const ownerPhoneValid = isValidBrazilPhone(ownerPhone);
+    const activeParticipants = participants.filter(
+        (p) => p.name.trim().length > 0 || digitsOnly(p.phone).length > 0,
+    );
+    const hasValidParticipant = activeParticipants.some(
+        (p) => p.name.trim().length > 0 && isValidBrazilPhone(p.phone),
+    );
 
     const canSubmit =
         ownerName.trim().length > 0 &&
-        ownerDigits.length >= 10 &&
+        ownerPhoneValid &&
         description.trim().length > 0 &&
         pixKey.trim().length > 0 &&
         parseMoneyInput(amountStr) >= 1 &&
-        participants.some(
-            (p) =>
-                p.name.trim().length > 0 &&
-                digitsOnly(p.phone).length >= 10,
-        );
+        hasValidParticipant;
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-        if (!canSubmit) return;
-        const amt = parseMoneyInput(amountStr);
-        const plist = participants
-            .filter(
-                (p) =>
-                    p.name.trim().length > 0 &&
-                    digitsOnly(p.phone).length >= 10,
-            )
-            .map((p) => ({
-                name: p.name.trim(),
-                phone: digitsOnly(p.phone),
-            }));
-        if (plist.length < 1) {
+        if (!ownerPhoneValid) {
+            setError(BRAZIL_PHONE_ERROR_MESSAGE);
+            return;
+        }
+        if (activeParticipants.length < 1) {
             setError("Informe ao menos um participante com nome e telefone.");
             return;
         }
+        for (const participant of activeParticipants) {
+            if (participant.name.trim().length === 0) {
+                setError("Informe ao menos um participante com nome e telefone.");
+                return;
+            }
+            if (!isValidBrazilPhone(participant.phone)) {
+                setError(BRAZIL_PHONE_ERROR_MESSAGE);
+                return;
+            }
+        }
+        if (!canSubmit) return;
+        const amt = parseMoneyInput(amountStr);
+        const plist = activeParticipants.map((p) => ({
+                name: p.name.trim(),
+                phone: digitsOnly(p.phone),
+            }));
 
         setSubmitting(true);
         try {
@@ -275,9 +292,25 @@ export default function PublicNewExpense() {
                                     formatBrazilPhoneDisplay(e.target.value),
                                 )
                             }
+                            onBlur={() => {
+                                setOwnerPhoneTouched(true);
+                                if (
+                                    ownerDigits.length > 0 &&
+                                    !ownerPhoneValid
+                                ) {
+                                    setError(BRAZIL_PHONE_ERROR_MESSAGE);
+                                }
+                            }}
                             placeholder={GENERIC_BRAZIL_PHONE_PLACEHOLDER}
                             required
                         />
+                        {ownerPhoneTouched &&
+                            ownerDigits.length > 0 &&
+                            !ownerPhoneValid && (
+                                <span className="text-sm font-medium text-status-rejected-fg">
+                                    {BRAZIL_PHONE_ERROR_MESSAGE}
+                                </span>
+                            )}
                     </label>
                     <label className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold uppercase tracking-widest">
@@ -394,10 +427,25 @@ export default function PublicNewExpense() {
                                                 ),
                                             )
                                         }
+                                        onBlur={() =>
+                                            setParticipantPhoneTouched(
+                                                (prev) => ({
+                                                    ...prev,
+                                                    [i]: true,
+                                                }),
+                                            )
+                                        }
                                         placeholder={
                                             GENERIC_BRAZIL_PHONE_PLACEHOLDER
                                         }
                                     />
+                                    {participantPhoneTouched[i] &&
+                                        digitsOnly(row.phone).length > 0 &&
+                                        !isValidBrazilPhone(row.phone) && (
+                                            <span className="text-sm font-medium text-status-rejected-fg">
+                                                {BRAZIL_PHONE_ERROR_MESSAGE}
+                                            </span>
+                                        )}
                                 </label>
                             </div>
                         ))}

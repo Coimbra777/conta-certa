@@ -37,10 +37,10 @@ class ExpenseTest extends TestCase
     {
         $this->assertGreaterThan(0, $participantCount);
         $names = [$admin->name];
-        $phones = ['11000000001'];
+        $phones = ['11900000001'];
         for ($i = 1; $i < $participantCount; $i++) {
             $names[] = "Participant {$i}";
-            $phones[] = '1100000000'.($i + 1);
+            $phones[] = '1190000000'.($i + 1);
         }
 
         $totalCents = (int) round($total * 100);
@@ -109,6 +109,26 @@ class ExpenseTest extends TestCase
         $this->postParticipantsSplit($admin, $expenseId, 4, 200.00);
 
         $this->assertDatabaseCount('charges', 4);
+    }
+
+    public function test_add_participants_rejects_invalid_brazilian_phone(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload());
+        $create->assertStatus(201);
+
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => 'Inválido', 'phone' => '1193334444', 'amount' => 100],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('participants.0.phone');
     }
 
     public function test_rounding_is_handled_correctly(): void
@@ -301,9 +321,9 @@ class ExpenseTest extends TestCase
         $add = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
-                    ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
+                    ['name' => 'Novo Membro', 'phone' => '11988887777', 'amount' => 30],
                 ],
             ]);
 
@@ -325,8 +345,8 @@ class ExpenseTest extends TestCase
         $dup = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'Um', 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Dois mesmo tel', 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Um', 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Dois mesmo tel', 'phone' => '11900000001', 'amount' => 30],
                 ],
             ]);
 
@@ -350,8 +370,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'Um', 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Dois', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Um', 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Dois', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -361,7 +381,7 @@ class ExpenseTest extends TestCase
         $again = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'Duplicado', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Duplicado', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ]);
 
@@ -385,8 +405,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'A', 'phone' => '11000000001', 'amount' => 50],
-                    ['name' => 'B', 'phone' => '11000000002', 'amount' => 50],
+                    ['name' => 'A', 'phone' => '11900000001', 'amount' => 50],
+                    ['name' => 'B', 'phone' => '11900000002', 'amount' => 50],
                 ],
             ])
             ->assertOk();
@@ -396,7 +416,7 @@ class ExpenseTest extends TestCase
         $bad = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => 'C', 'phone' => '11000000003', 'amount' => 10],
+                    ['name' => 'C', 'phone' => '11900000003', 'amount' => 10],
                 ],
             ]);
 
@@ -567,8 +587,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -594,8 +614,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -623,8 +643,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 50],
-                    ['name' => $otherUser->name, 'phone' => '11000000002', 'amount' => 50],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 50],
+                    ['name' => $otherUser->name, 'phone' => '11900000002', 'amount' => 50],
                 ],
             ])
             ->assertOk();
@@ -647,9 +667,9 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
-                    ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 20],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
+                    ['name' => 'Novo Membro', 'phone' => '11988887777', 'amount' => 20],
                 ],
             ])
             ->assertStatus(422)
@@ -691,8 +711,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -721,8 +741,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertStatus(422)
@@ -743,8 +763,8 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -775,16 +795,16 @@ class ExpenseTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
-                    ['name' => 'Participant 2', 'phone' => '11000000003', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11900000002', 'amount' => 30],
+                    ['name' => 'Participant 2', 'phone' => '11900000003', 'amount' => 30],
                 ],
             ])
             ->assertOk();
 
         $participantId = ExpenseParticipant::query()
             ->where('expense_id', $expenseId)
-            ->where('phone_normalized', '11000000003')
+            ->where('phone_normalized', '11900000003')
             ->first()
             ->id;
 

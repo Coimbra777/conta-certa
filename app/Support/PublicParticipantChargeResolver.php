@@ -16,9 +16,9 @@ class PublicParticipantChargeResolver
         string $phoneRaw,
     ): ?Charge {
         $nameTrim = trim($nameInput);
-        $phoneDigits = preg_replace('/\D+/', '', $phoneRaw) ?? '';
+        $phoneDigits = PhoneNormalizer::digits($phoneRaw);
 
-        if ($nameTrim === '' || $phoneDigits === '' || strlen($phoneDigits) < 10) {
+        if ($nameTrim === '' || ! PhoneNormalizer::isValid($phoneDigits)) {
             return null;
         }
 

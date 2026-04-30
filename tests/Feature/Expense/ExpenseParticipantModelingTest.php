@@ -45,8 +45,8 @@ class ExpenseParticipantModelingTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Alice', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Alice', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -86,8 +86,8 @@ class ExpenseParticipantModelingTest extends TestCase
         $ep = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Nome Na Cobrança',
-            'phone' => '11000000001',
-            'phone_normalized' => '11000000001',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
             'amount' => 50,
         ]);
 
@@ -122,8 +122,8 @@ class ExpenseParticipantModelingTest extends TestCase
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
-                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Alice', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => $admin->name, 'phone' => '11900000001', 'amount' => 30],
+                    ['name' => 'Alice', 'phone' => '11900000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();

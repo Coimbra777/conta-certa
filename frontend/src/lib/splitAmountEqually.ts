@@ -1,4 +1,9 @@
-import { digitsOnly, parseMoneyInput } from "@/lib/inputMasks";
+import {
+    BRAZIL_PHONE_ERROR_MESSAGE,
+    digitsOnly,
+    isValidBrazilPhone,
+    parseMoneyInput,
+} from "@/lib/inputMasks";
 
 export type ParticipantDraftRow = {
     name: string;
@@ -49,11 +54,17 @@ export function validateExpenseParticipantsPayload(
     let sumCents = 0;
 
     for (const p of participants) {
-        if (p.name.trim().length === 0 || digitsOnly(p.phone).length < 10) {
+        if (p.name.trim().length === 0) {
             return {
                 ok: false,
                 message:
                     'Clique em "dividir igualmente" ou informe o valor de cada participante.',
+            };
+        }
+        if (!isValidBrazilPhone(p.phone)) {
+            return {
+                ok: false,
+                message: BRAZIL_PHONE_ERROR_MESSAGE,
             };
         }
         if (!p.amount.trim()) {

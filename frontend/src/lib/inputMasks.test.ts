@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+    BRAZIL_PHONE_ERROR_MESSAGE,
     digitsOnly,
     formatBrazilPhoneDisplay,
     GENERIC_BRAZIL_PHONE_PLACEHOLDER,
+    isValidBrazilPhone,
 } from "./inputMasks";
 
 describe("formatBrazilPhoneDisplay", () => {
@@ -33,5 +35,28 @@ describe("formatBrazilPhoneDisplay", () => {
 describe("digitsOnly", () => {
     it("extracts digits for API payload", () => {
         expect(digitsOnly(GENERIC_BRAZIL_PHONE_PLACEHOLDER)).toBe("11999999999");
+    });
+});
+
+describe("isValidBrazilPhone", () => {
+    it("accepts valid mobile numbers", () => {
+        expect(isValidBrazilPhone("11999999999")).toBe(true);
+    });
+
+    it("accepts valid landline numbers", () => {
+        expect(isValidBrazilPhone("1133334444")).toBe(true);
+    });
+
+    it("rejects 10-digit numbers starting with 9", () => {
+        expect(isValidBrazilPhone("1193334444")).toBe(false);
+    });
+
+    it("rejects short numbers", () => {
+        expect(isValidBrazilPhone("987013066")).toBe(false);
+    });
+
+    it("rejects repeated digits", () => {
+        expect(isValidBrazilPhone("99999999999")).toBe(false);
+        expect(BRAZIL_PHONE_ERROR_MESSAGE).toMatch(/Telefone inválido/i);
     });
 });

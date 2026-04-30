@@ -20,21 +20,21 @@ describe("splitTotalEquallyInReais", () => {
 describe("buildParticipantsPayloadForApi", () => {
     it("envia amount numérico e telefone só dígitos", () => {
         const payload = buildParticipantsPayloadForApi([
-            { name: "A", phone: "(98) 99999-9999", amount: "33,34" },
-            { name: "B", phone: "98888888888", amount: "33,33" },
+            { name: "A", phone: "(11) 99999-9999", amount: "33,34" },
+            { name: "B", phone: "11988888888", amount: "33,33" },
         ]);
         expect(payload).toEqual([
-            { name: "A", phone: "98999999999", amount: 33.34 },
-            { name: "B", phone: "98888888888", amount: 33.33 },
+            { name: "A", phone: "11999999999", amount: 33.34 },
+            { name: "B", phone: "11988888888", amount: 33.33 },
         ]);
     });
 });
 
 describe("validateExpenseParticipantsPayload", () => {
     const rows = [
-        { name: "A", phone: "98999999999", amount: "33,34" },
-        { name: "B", phone: "98888888888", amount: "33,33" },
-        { name: "C", phone: "98777777777", amount: "33,33" },
+        { name: "A", phone: "11999999999", amount: "33,34" },
+        { name: "B", phone: "11988888888", amount: "33,33" },
+        { name: "C", phone: "11977777777", amount: "33,33" },
     ];
 
     it("aceita soma fechando com o total", () => {
@@ -44,7 +44,7 @@ describe("validateExpenseParticipantsPayload", () => {
     it("recusa amount vazio", () => {
         expect(
             validateExpenseParticipantsPayload(
-                [{ name: "A", phone: "98999999999", amount: "" }],
+                [{ name: "A", phone: "11999999999", amount: "" }],
                 10,
             ).ok,
         ).toBe(false);
@@ -54,8 +54,8 @@ describe("validateExpenseParticipantsPayload", () => {
         expect(
             validateExpenseParticipantsPayload(
                 [
-                    { name: "A", phone: "98999999999", amount: "10,00" },
-                    { name: "B", phone: "98888888888", amount: "10,00" },
+                    { name: "A", phone: "11999999999", amount: "10,00" },
+                    { name: "B", phone: "11988888888", amount: "10,00" },
                 ],
                 100,
             ).ok,

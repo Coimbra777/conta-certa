@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Models\Expense;
 use App\Models\ExpenseParticipant;
+use App\Rules\BrazilPhone;
 use App\Support\ExpenseAuthorizer;
 use App\Support\PhoneNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
@@ -32,7 +33,7 @@ class UpdateExpenseParticipantRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:255'],
-            'phone' => ['sometimes', 'string', 'max:32'],
+            'phone' => ['sometimes', 'string', 'max:32', new BrazilPhone()],
             'amount' => ['sometimes', 'nullable', 'numeric', 'min:0.01'],
         ];
     }

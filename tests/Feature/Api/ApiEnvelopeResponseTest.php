@@ -34,8 +34,8 @@ class ApiEnvelopeResponseTest extends TestCase
         $ep = ExpenseParticipant::create([
             'expense_id' => $expense->id,
             'name' => 'Admin',
-            'phone' => '11000000001',
-            'phone_normalized' => '11000000001',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
             'amount' => 10.00,
         ]);
 

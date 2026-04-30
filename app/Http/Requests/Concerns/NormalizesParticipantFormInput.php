@@ -34,13 +34,15 @@ trait NormalizesParticipantFormInput
         foreach (array_merge($fromArray, $fromText) as $item) {
             $phone = $item['phone'] ?? '';
             $name = $item['name'] ?? '';
-            if ($phone === '' || strlen($phone) < 10 || $name === '') {
+            if ($phone === '' && $name === '') {
                 continue;
             }
-            if (isset($seen[$phone])) {
+            if (PhoneNormalizer::isValid($phone) && isset($seen[$phone])) {
                 continue;
             }
-            $seen[$phone] = true;
+            if (PhoneNormalizer::isValid($phone)) {
+                $seen[$phone] = true;
+            }
             $merged[] = ['name' => $name, 'phone' => $phone];
         }
 
