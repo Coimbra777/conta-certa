@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Exceptions\HttpApiException;
 use App\Models\Expense;
 use App\Support\ExpenseAuthorizer;
 use App\Support\PhoneNormalizer;
@@ -71,12 +72,43 @@ class AddExpenseParticipantsRequest extends FormRequest
                 return;
             }
 
-            $sum = round(collect($this->input('participants', []))->sum(fn ($p) => (float) ($p['amount'] ?? 0)), 2);
+            $seenInPayload = [];
+            foreach ($this->input('participants', []) as $p) {
+                if (! is_array($p)) {
+                    continue;
+                }
+                $phone = PhoneNormalizer::digits($p['phone'] ?? '');
+                $name = trim((string) ($p['name'] ?? ''));
+                if ($phone === '' || strlen($phone) < 10 || $name === '') {
+                    continue;
+                }
+                if (isset($seenInPayload[$phone])) {
+                    throw new HttpApiException(
+                        'Já existe um participante com este telefone nesta despesa.',
+                        'DUPLICATE_PARTICIPANT',
+                        422,
+                    );
+                }
+                $seenInPayload[$phone] = true;
+
+                if ($expense->charges()->whereHas('expenseParticipant', function ($q) use ($phone): void {
+                    $q->where('phone_normalized', $phone);
+                })->exists()) {
+                    throw new HttpApiException(
+                        'Já existe um participante com este telefone nesta despesa.',
+                        'DUPLICATE_PARTICIPANT',
+                        422,
+                    );
+                }
+            }
+
+            $existingSum = round((float) $expense->charges()->sum('amount'), 2);
+            $newSum = round(collect($this->input('participants', []))->sum(fn ($p) => (float) ($p['amount'] ?? 0)), 2);
             $total = round((float) $expense->total_amount, 2);
-            if (abs($sum - $total) > 0.02) {
+            if (abs($existingSum + $newSum - $total) > 0.02) {
                 $validator->errors()->add(
                     'participants',
-                    'A soma dos valores dos participantes deve ser igual ao valor total da cobrança.'
+                    'A soma dos valores já distribuídos entre participantes existentes mais os novos deve ser igual ao valor total da cobrança.'
                 );
             }
         });

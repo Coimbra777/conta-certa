@@ -332,6 +332,75 @@ class ExpenseTest extends TestCase
         $this->assertDatabaseCount('charges', 0);
     }
 
+    public function test_add_participants_rejects_phone_already_registered_on_expense(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => 'Um', 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Dois', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseCount('charges', 2);
+
+        $again = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => 'Duplicado', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ]);
+
+        $again->assertStatus(422)
+            ->assertJsonPath('message', 'Já existe um participante com este telefone nesta despesa.')
+            ->assertJsonPath('code', 'DUPLICATE_PARTICIPANT');
+
+        $this->assertDatabaseCount('charges', 2);
+    }
+
+    public function test_add_participants_second_batch_requires_sum_existing_plus_new_equals_total(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 100.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => 'A', 'phone' => '11000000001', 'amount' => 50],
+                    ['name' => 'B', 'phone' => '11000000002', 'amount' => 50],
+                ],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseCount('charges', 2);
+
+        $bad = $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => 'C', 'phone' => '11000000003', 'amount' => 10],
+                ],
+            ]);
+
+        $bad->assertStatus(422)
+            ->assertJsonValidationErrors(['participants']);
+
+        $this->assertDatabaseCount('charges', 2);
+    }
+
     public function test_non_creator_cannot_patch_expense(): void
     {
         $admin = User::factory()->create();

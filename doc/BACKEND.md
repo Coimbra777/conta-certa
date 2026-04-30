@@ -36,7 +36,7 @@ No MVP, **`due_date`** não impede envio de comprovante nem validação após o 
 ## Fluxo de dados (exemplo)
 
 1. Organizador **POST /expenses** → `Expense` sem cobranças por participante até **POST …/participants**.  
-2. Serviço cria **ExpenseParticipant** + **Charge** e distribui valores.  
+2. Serviço cria **ExpenseParticipant** + **Charge** em **`POST …/participants`** apenas para **telefones novos**; valores novos somam aos já gravados até fechar `total_amount`. Duplicata de telefone (payload ou já na despesa) → **422** `DUPLICATE_PARTICIPANT`.  
 3. Participante no link público → **validate-participant** / **submit-proof** → **PaymentProof** + mudança de status.  
 4. Organizador → **PATCH charges/{id}/validate|reject** → atualização de **Charge** e possível fechamento da **Expense**.
 

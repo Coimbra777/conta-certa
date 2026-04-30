@@ -77,7 +77,10 @@ class ExpenseService
     }
 
     /**
-     * @param  list<array{name: string, phone: string}>  $participants  phones apenas digitos
+     * Insere apenas participantes novos (telefone ainda não presente na despesa).
+     * A soma dos valores já gravados nas cobranças existentes mais os informados neste POST deve igualar o total da despesa.
+     *
+     * @param  list<array{name: string, phone: string, amount?: float|int|string|null}>  $participants
      */
     public function addParticipantsToExpense(Expense $expense, array $participants): Expense
     {
@@ -91,7 +94,7 @@ class ExpenseService
             );
         }
 
-        $this->assertNoDuplicatePhonesForParticipants($participants);
+        $this->assertNewParticipantPhonesAllowed($expense, $participants);
 
         $result = DB::transaction(function () use ($expense, $participants) {
             $newChargeIds = [];
@@ -100,13 +103,9 @@ class ExpenseService
                 $phone = PhoneNormalizer::digits($p['phone'] ?? '');
                 $name = trim((string) ($p['name'] ?? ''));
                 if ($phone === '' || strlen($phone) < 10 || $name === '') {
-                    continue;
-                }
-
-                if ($expense->charges()->whereHas('expenseParticipant', function ($q) use ($phone): void {
-                    $q->where('phone_normalized', $phone);
-                })->exists()) {
-                    continue;
+                    throw new \DomainException(
+                        'Informe nome e telefone válidos para cada participante novo.'
+                    );
                 }
 
                 $participant = ExpenseParticipant::create([
@@ -131,7 +130,7 @@ class ExpenseService
             }
 
             $fresh = $expense->fresh()->load(Charge::eagerChargesWithParticipant());
-            $this->applyExplicitParticipantAmounts($fresh, $participants);
+            $this->applyIncrementalParticipantAmounts($fresh, $participants);
 
             return [
                 'expense' => $fresh->load(Charge::eagerChargesWithParticipant()),
@@ -162,17 +161,18 @@ class ExpenseService
     }
 
     /**
-     * Atribui valores por participante (telefone). A soma deve igualar o total da despesa.
+     * Aplica apenas os valores enviados neste POST aos participantes novos; mantém valores já gravados nas cobranças existentes.
+     * Exige round(sum(cobranças existentes) + sum(payload)) == total_amount da despesa.
      *
-     * @param  list<array{name: string, phone: string, amount?: float|int|string|null}>  $participants
+     * @param  list<array{name: string, phone: string, amount?: float|int|string|null}>  $newParticipantsOnly
      */
-    public function applyExplicitParticipantAmounts(Expense $expense, array $participants): void
+    private function applyIncrementalParticipantAmounts(Expense $expense, array $newParticipantsOnly): void
     {
         $charges = $expense->charges()->with(Charge::EAGER_WITH_PARTICIPANT)->orderBy('id')->get();
         ChargeStatusTransition::assertAllPendingForRedistribution($charges);
 
-        $amountByPhone = [];
-        foreach ($participants as $p) {
+        $amountByPhoneNew = [];
+        foreach ($newParticipantsOnly as $p) {
             $phone = PhoneNormalizer::digits($p['phone'] ?? '');
             if ($phone === '') {
                 continue;
@@ -181,26 +181,53 @@ class ExpenseService
             if ($amount === null || $amount <= 0) {
                 throw new \DomainException('Cada participante deve ter um valor maior que zero.');
             }
-            $amountByPhone[$phone] = $amount;
+            $amountByPhoneNew[$phone] = $amount;
         }
 
         $expectedSum = round((float) $expense->total_amount, 2);
-        $sum = round(array_sum($amountByPhone), 2);
-        if (abs($sum - $expectedSum) > 0.02) {
-            throw new \DomainException('A soma dos valores dos participantes deve ser igual ao valor total da cobrança.');
+        $running = 0.0;
+        foreach ($charges as $charge) {
+            $row = $charge->participantIdentity();
+            $participantPhone = PhoneNormalizer::digits((string) ($row['phone'] ?? ''));
+            if ($participantPhone === '') {
+                throw new \DomainException('Participante sem telefone válido.');
+            }
+            if (isset($amountByPhoneNew[$participantPhone])) {
+                $running += $amountByPhoneNew[$participantPhone];
+            } else {
+                $running += round((float) $charge->amount, 2);
+            }
+        }
+        $running = round($running, 2);
+        if (abs($running - $expectedSum) > 0.02) {
+            throw new \DomainException(
+                'A soma dos valores já distribuídos entre participantes existentes mais os novos deve ser igual ao valor total da cobrança.'
+            );
         }
 
-        if (count($amountByPhone) !== $charges->count()) {
-            throw new \DomainException('Informe exatamente um valor para cada participante da cobrança.');
+        foreach (array_keys($amountByPhoneNew) as $phoneKey) {
+            // PHP casts numeric string keys to int; normalize before comparing to digits-only strings.
+            $phone = PhoneNormalizer::digits((string) $phoneKey);
+            $found = false;
+            foreach ($charges as $charge) {
+                $row = $charge->participantIdentity();
+                if (PhoneNormalizer::digits((string) ($row['phone'] ?? '')) === $phone) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (! $found) {
+                throw new \DomainException('Inconsistência ao aplicar valores dos novos participantes.');
+            }
         }
 
         foreach ($charges as $charge) {
             $row = $charge->participantIdentity();
             $participantPhone = PhoneNormalizer::digits((string) ($row['phone'] ?? ''));
-            if ($participantPhone === '' || ! isset($amountByPhone[$participantPhone])) {
-                throw new \DomainException('Defina o valor para cada participante da cobrança.');
+            if (! isset($amountByPhoneNew[$participantPhone])) {
+                continue;
             }
-            $amt = $amountByPhone[$participantPhone];
+            $amt = $amountByPhoneNew[$participantPhone];
             $charge->update([
                 'amount' => $amt,
                 'description' => $expense->description,
@@ -375,11 +402,11 @@ class ExpenseService
     }
 
     /**
-     * Telefone repetido no mesmo payload não pode ser ignorado silenciosamente.
+     * POST /participants só aceita telefones novos nesta despesa; duplicata no payload ou já cadastrado → 422.
      *
      * @param  list<array{name?: string, phone?: string, amount?: mixed}>  $participants
      */
-    private function assertNoDuplicatePhonesForParticipants(array $participants): void
+    private function assertNewParticipantPhonesAllowed(Expense $expense, array $participants): void
     {
         $seenInPayload = [];
 
@@ -398,6 +425,16 @@ class ExpenseService
                 );
             }
             $seenInPayload[$phone] = true;
+
+            if ($expense->charges()->whereHas('expenseParticipant', function ($q) use ($phone): void {
+                $q->where('phone_normalized', $phone);
+            })->exists()) {
+                throw new HttpApiException(
+                    'Já existe um participante com este telefone nesta despesa.',
+                    'DUPLICATE_PARTICIPANT',
+                    422,
+                );
+            }
         }
     }
 }

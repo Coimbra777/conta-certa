@@ -17,6 +17,11 @@ Substituir planilhas e cobranças informais sem visibilidade de quem já pagou o
 5. Upload do comprovante pelo participante.
 6. Validação ou rejeição pelo organizador (painel ou gestão via token).
 
+### API autenticada — participantes
+
+- **`POST /expenses/{id}/participants`** só **insere** linhas novas (telefones inéditos na despesa). Não serve para reenviar a lista inteira de quem já está cadastrado.
+- Valores já distribuídos + valores deste POST devem fechar o `total_amount`. Ajustes em quem já existe: **`PATCH .../participants/{id}`**.
+
 ### Regras de produto (MVP)
 
 - **`due_date`:** informativo; não bloqueia fluxos após o dia do vencimento.

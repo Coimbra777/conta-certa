@@ -564,6 +564,8 @@ export const api = {
             payload,
         );
         const expId = String(created.expense.id);
+        /* Primeira inclusão: despesa ainda sem cobranças — payload fecha o total.
+         * Novos envios ao mesmo endpoint só podem trazer telefones novos (ver doc/API.md). */
         await v1Fetch<{ expense: Record<string, unknown> }>(
             "POST",
             `/expenses/${expId}/participants`,

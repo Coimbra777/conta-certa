@@ -71,6 +71,14 @@ PATCH  /api/v1/expenses/{id}/participants/{participantId}
 DELETE /api/v1/expenses/{id}/participants/{participantId}
 ```
 
+### `POST .../participants` — adicionar apenas participantes novos
+
+Cada telefone no corpo deve ser **novo** nesta despesa. Duplicata no payload ou telefone já cadastrado → **422** `DUPLICATE_PARTICIPANT` com a mensagem *Já existe um participante com este telefone nesta despesa.*
+
+**Soma dos valores:** `sum(amount das cobranças já existentes) + sum(amount deste POST) == total_amount` da despesa. Na primeira chamada (sem cobranças), basta o payload fechar o total.
+
+Alterar ou remover quem já está na lista: **`PATCH`/`DELETE .../participants/{participantId}`**. Subir o valor total da despesa pode **redistribuir** valores entre cobranças já existentes conforme `ExpenseService::updateExpense`.
+
 **Exemplo — criar despesa (POST body simplificado):**
 
 ```json
@@ -121,9 +129,9 @@ Corpo validado pelo `StorePublicExpenseRequest` (despesa + lista de participante
 
 ---
 
-### Duplicata de telefone (participantes autenticados)
+### Duplicata de telefone (`POST /api/v1/expenses/{id}/participants`)
 
-`POST /api/v1/expenses/{id}/participants` com **dois itens com o mesmo telefone normalizado** na mesma requisição → **422**, corpo:
+**Mesmo telefone duas vezes no JSON** ou **telefone igual ao de um participante já cadastrado na despesa** → **422**, exemplo de corpo:
 
 ```json
 {
