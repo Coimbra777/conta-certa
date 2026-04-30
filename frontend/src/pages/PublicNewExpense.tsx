@@ -1,3 +1,8 @@
+/**
+ * Fluxo completo de criação de cobrança sem cadastro (UI).
+ * Em standby no produto: a rota SPA usa {@link ./PublicCreateExpenseStandby.tsx}; o backend retorna 410 em POST /api/public/expenses.
+ * Mantido para reativação futura sem reimplementar formulário e estado.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiClientError, api } from "@/lib/api/client";

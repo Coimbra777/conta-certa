@@ -7,11 +7,18 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { CopyButton } from "@/components/CopyButton";
 import { api } from "@/lib/api/client";
 import type { ApiStatus, Expense } from "@/lib/types";
-import { buildPublicLink, formatBRL, formatDate } from "@/lib/format";
+import {
+    buildOrganizerExpenseShareMessage,
+    buildPublicLink,
+    buildWhatsAppShareUrl,
+    formatBRL,
+    formatDate,
+} from "@/lib/format";
 import {
     CircleDollarSign,
     Clock,
     ListChecks,
+    MessageCircle,
     PiggyBank,
     Plus,
     Receipt,
@@ -259,6 +266,17 @@ export default function Dashboard() {
                                         allValidated,
                                     );
 
+                                    const cardPublicLink = buildPublicLink(
+                                        exp.publicHash,
+                                    );
+                                    const cardWhatsAppHref =
+                                        buildWhatsAppShareUrl(
+                                            buildOrganizerExpenseShareMessage(
+                                                exp.title,
+                                                cardPublicLink,
+                                            ),
+                                        );
+
                                     return (
                                         <li
                                             key={exp.id}
@@ -340,20 +358,28 @@ export default function Dashboard() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-2 mt-1">
+                                            <div className="flex flex-wrap items-center gap-2 mt-1">
                                                 <Link
                                                     to={`/cobrancas/${exp.id}`}
-                                                    className="flex-1 text-center bg-foreground text-background border-4 border-foreground px-4 py-2 rounded-lg font-bold brutal-press brutal-press-sm"
+                                                    className="flex-1 min-w-[140px] text-center bg-foreground text-background border-4 border-foreground px-4 py-2 rounded-lg font-bold brutal-press brutal-press-sm"
                                                 >
                                                     Ver detalhes
                                                 </Link>
                                                 <CopyButton
                                                     variant="ghost"
-                                                    value={buildPublicLink(
-                                                        exp.publicHash,
-                                                    )}
+                                                    value={cardPublicLink}
                                                     label="Copiar link"
                                                 />
+                                                <a
+                                                    href={cardWhatsAppHref}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm"
+                                                    title="Compartilhar no WhatsApp"
+                                                >
+                                                    <MessageCircle className="size-4" />
+                                                    WhatsApp
+                                                </a>
                                             </div>
                                         </li>
                                     );

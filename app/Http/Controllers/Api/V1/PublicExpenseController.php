@@ -9,6 +9,7 @@ use App\Actions\Charge\ValidateChargeAction;
 use App\Actions\Expense\AddPublicExpenseParticipantsAction;
 use App\Http\Controllers\Concerns\AuthorizesPublicExpense;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\PublicAnonymousExpenseCreationStandby;
 use App\Http\Requests\Api\V1\AddPublicExpenseParticipantsRequest;
 use App\Http\Requests\Api\V1\RejectChargeRequest;
 use App\Http\Requests\Api\V1\StorePublicExpenseRequest;
@@ -35,6 +36,10 @@ class PublicExpenseController extends Controller
 {
     use AuthorizesPublicExpense;
 
+    /**
+     * Persistência para criação anônima permanece implementada; o endpoint HTTP está em standby
+     * via middleware {@see PublicAnonymousExpenseCreationStandby}.
+     */
     public function store(StorePublicExpenseRequest $request, PublicExpenseCreatorService $creator): JsonResponse
     {
         $data = $request->validated();

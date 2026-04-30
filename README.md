@@ -90,13 +90,15 @@ npm run test
 npm run build
 ```
 
-## Fluxo do sistema
+## Fluxo do sistema (principal)
 
-1. Usuário cria conta / login
-2. Cria cobrança
-3. Adiciona participantes
-4. Compartilha link público
-5. Participantes enviam comprovante
-6. Criador valida/rejeita
+1. Usuário **cria conta** ou faz **login**
+2. **Cria despesa** autenticada e **adiciona participantes** com valores
+3. **Compartilha o link público** (`/p/{public_hash}`)
+4. Participante informa **nome + telefone**, envia **comprovante** quando permitido
+5. Organizador **valida ou rejeita** no painel (**motivo obrigatório** na rejeição)
+6. Com todas as cobranças **validadas**, a despesa pode ser **encerrada** automaticamente conforme regras do backend
 
-Mais detalhes: **`doc/`**.
+**Standby:** criação de cobrança **sem cadastro** está desativada na API/UI; ver `doc/PROJECT_OVERVIEW.md` e `doc/API.md`.
+
+Mais detalhes: **`doc/`** (incl. **SECURITY.md** para `public_hash`, `manage_token` e privacidade do GET público).

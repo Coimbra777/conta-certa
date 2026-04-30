@@ -35,9 +35,10 @@
 
 ## Rotas principais (SPA)
 
-- `/login`, `/register`  
-- Área logada: `/dashboard`, fluxos de nova cobrança e detalhe  
-- Público: `/p/:hash` — query `manage` para modo gestão  
+- `/login`, `/cadastro`  
+- Área logada: `/dashboard`, `/cobrancas/nova`, detalhe da cobrança  
+- Participante (sem login): `/p/:hash` — query/header `manage` para modo gestão experimental  
+- `/cobranca-publica/nova` — mensagem de **standby** (criação sem cadastro); fluxo principal direciona para cadastro/login  
 
 ## Build e testes
 

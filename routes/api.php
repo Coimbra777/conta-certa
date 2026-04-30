@@ -7,8 +7,9 @@ use App\Http\Controllers\Api\V1\ExpenseParticipantController;
 use App\Http\Controllers\Api\V1\PublicExpenseController;
 use Illuminate\Support\Facades\Route;
 
+/** Criação anônima em standby — middleware retorna 410; remover `public-expense-create-standby` para reativar. */
 Route::post('/public/expenses', [PublicExpenseController::class, 'store'])
-    ->middleware('throttle:public-create-expense');
+    ->middleware(['throttle:public-create-expense', 'public-expense-create-standby']);
 
 Route::prefix('v1')->group(function () {
 

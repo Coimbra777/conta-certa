@@ -7,12 +7,22 @@
 ## Gestão pública
 
 - **`manage_token`** opaco; envio via query `manage` ou header **`X-Manage-Token`**; comparação com **`hash_equals`** no servidor.
-- O link **para participantes** não deve incluir esse token. Na **criação** pública (`POST /api/public/expenses`), a API devolve `participant_url` e **`manage_url`** (fragmento `#manage=`); prefira esses campos à exposição manual do token (embora `manage_token` ainda possa vir na resposta por compatibilidade).
+- O link **para participantes** não deve incluir esse token. Em fluxos onde a API devolve links de criação/gestão, prefira **`participant_url`** e **`manage_url`** (fragmento `#manage=`) à exposição manual do token (campo `manage_token` pode existir por compatibilidade).
+- **Fluxo principal atual:** organizador **autenticado** no painel. Gestão só com **`manage_token`** é **experimental / standby** como narrativa de produto (cobranças `created_by = null` não aparecem no painel).
 - **GET público** sem gestão retorna apenas **totais agregados** (quantidade de participantes, pagos, em aberto) — não lista nome/telefone/status por pessoa.
+
+### Criação sem cadastro (standby)
+
+- **`POST /api/public/expenses`** responde **410** até remoção do middleware de standby; não confundir com rotas de participante (`GET` por hash, `validate-participant`, `submit-proof`), que permanecem ativas.
+
+## Validação, rejeição e prazo
+
+- **Rejeição de cobrança** (`PATCH .../reject`): **`reason` obrigatório** (painel autenticado e gestão pública com `manage_token`).
+- **`due_date`:** no MVP é **informativo** — não bloqueia envio de comprovante nem validação após o vencimento (ver também API.md).
 
 ## Rate limiting
 
-- Limite global na API + limitadores nomeados (login, registro, criação pública de despesa, validação de participante, envio de comprovante, ações com manage).
+- Limite global na API + limitadores nomeados (login, registro, rota `POST /api/public/expenses` — hoje **410 standby**, throttle ainda aplicado —, validação de participante, envio de comprovante, ações com manage).
 
 ## Uploads
 

@@ -4,7 +4,11 @@ import { AppShell } from "@/components/AppShell";
 import { CopyButton } from "@/components/CopyButton";
 import { api } from "@/lib/api/client";
 import type { Expense } from "@/lib/types";
-import { buildPublicLink } from "@/lib/format";
+import {
+    buildOrganizerExpenseShareMessage,
+    buildPublicLink,
+    buildWhatsAppShareUrl,
+} from "@/lib/format";
 import { CheckCircle2, MessageCircle, ArrowRight } from "lucide-react";
 
 export default function ExpenseSuccess() {
@@ -15,7 +19,9 @@ export default function ExpenseSuccess() {
 
     if (!exp) return <AppShell><div className="p-8">Carregando…</div></AppShell>;
     const link = buildPublicLink(exp.publicHash);
-    const wppText = encodeURIComponent(`Oi! Criei a cobrança "${exp.title}" no ContaCerta. Clique pra ver seu valor e pagar via Pix: ${link}`);
+    const whatsappHref = buildWhatsAppShareUrl(
+        buildOrganizerExpenseShareMessage(exp.title, link),
+    );
 
     return (
         <AppShell>
@@ -37,9 +43,9 @@ export default function ExpenseSuccess() {
                     </div>
                     <CopyButton value={link} label="Copiar link" className="w-full py-4 text-base" />
                     <a
-                        href={`https://wa.me/?text=${wppText}`}
+                        href={whatsappHref}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-2 bg-arcade-cyan text-foreground border-4 border-foreground px-4 py-3 rounded-xl font-black uppercase brutal-press brutal-press-sm"
                     >
                         <MessageCircle className="size-5" /> Compartilhar no WhatsApp

@@ -113,15 +113,17 @@ Em **`Expense`** (JSON autenticado ou público com gestão): **`amount_per_parti
 
 ---
 
-## Público — criar sem login
+## Público — criar sem login **(standby)**
 
 ```txt
 POST /api/public/expenses
 ```
 
-Corpo validado pelo `StorePublicExpenseRequest` (despesa + lista de participantes). **Throttle** dedicado.
+**Estado atual:** rota mantida por compatibilidade; middleware **`public-expense-create-standby`** responde **410 Gone** com código **`PUBLIC_CREATE_EXPENSE_STANDBY`** e mensagem orientando criação de conta. O **`PublicExpenseController::store`** e **`PublicExpenseCreatorService`** permanecem implementados — para reativar, remova o middleware desta rota em `routes/api.php`.
 
-**Resposta (201) — `data.expense` inclui:**
+**Throttle:** continua aplicado antes do standby.
+
+Quando reativado historicamente, o corpo seria validado por `StorePublicExpenseRequest` e a resposta **201** incluiria em `data.expense`:
 
 - `participant_url` — URL absoluta do link **somente** para participantes (sem `manage_token`).
 - `manage_url` — mesma rota pública com fragmento `#manage={token}` para o SPA persistir o token (evite divulgar junto do link de participantes).

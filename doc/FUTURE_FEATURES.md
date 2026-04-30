@@ -2,6 +2,7 @@
 
 Não é compromisso de escopo — apenas direções possíveis.
 
+- **Reativar criação sem cadastro** — remover middleware de standby + UX; avaliar recuperação de `manage_token` (conta, telefone, WhatsApp/SMS, “reivindicar cobrança”)
 - **Convite por link** — token por participante para menos fricção que nome + telefone  
 - **Notificações** — lembretes (WhatsApp/e-mail), opt-in e LGPD  
 - **Dashboard** — totais e indicadores para o organizador  

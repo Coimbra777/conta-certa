@@ -760,7 +760,7 @@ export const api = {
         );
     },
 
-    /** Cria despesa anônima (sem conta); sempre chama a API real em `/api/public/expenses`. */
+    /** Criação anônima em standby no produto: POST `/api/public/expenses` retorna **410** `PUBLIC_CREATE_EXPENSE_STANDBY`. Mantido para eventual reativação. */
     createPublicExpense: async (input: {
         ownerName: string;
         ownerPhone: string;

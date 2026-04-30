@@ -17,6 +17,7 @@ Respostas de registro/login **não** usam o envelope `ApiResponse`; o frontend t
 
 - Guardar o token apenas no cliente (hoje `localStorage` no React) implica risco se houver XSS — ver **[SECURITY.md](./SECURITY.md)**.
 - Em fluxos **públicos** (participante no link `/p/...`), não reutilizar o Bearer do organizador em chamadas que devem ser anônimas.
+- **Fluxo principal:** criar e gerenciar cobranças exige **conta** (`register` / `login`). A criação anônima via API está documentada como standby em **API.md**.
 
 ## Referências
 

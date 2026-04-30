@@ -35,28 +35,28 @@ export default function Landing() {
                     </h1>
 
                     <p className="text-lg sm:text-xl font-medium max-w-[46ch] leading-snug text-muted-foreground mb-10">
-                        Crie uma cobrança compartilhada, envie o link para os participantes e
+                        Cadastre-se, crie uma cobrança compartilhada, envie o link para os participantes e
                         acompanhe quem já pagou. Sem planilhas. Sem cobrança no WhatsApp.
                     </p>
 
                     <div className="flex flex-wrap gap-4 w-full sm:w-auto">
                         <Link
-                            to="/cobranca-publica/nova"
-                            className="bg-card text-foreground font-bold text-base sm:text-lg px-6 sm:px-8 py-4 border-4 border-foreground rounded-xl brutal-press brutal-press-md text-center w-full sm:w-auto"
-                        >
-                            Criar sem cadastro
-                        </Link>
-                        <Link
-                            to="/cobrancas/nova"
+                            to="/cadastro"
                             className="bg-accent text-accent-foreground font-black uppercase tracking-wider text-base sm:text-lg px-6 sm:px-8 py-4 border-4 border-foreground rounded-xl brutal-press brutal-press-md text-center w-full sm:w-auto inline-flex items-center justify-center gap-2"
                         >
-                            Criar cobrança <ArrowRight className="size-5" />
+                            Criar conta grátis <ArrowRight className="size-5" />
+                        </Link>
+                        <Link
+                            to="/login?redirect=/cobrancas/nova"
+                            className="bg-card text-foreground font-bold text-base sm:text-lg px-6 sm:px-8 py-4 border-4 border-foreground rounded-xl brutal-press brutal-press-md text-center w-full sm:w-auto"
+                        >
+                            Entrar e criar cobrança
                         </Link>
                         <Link
                             to={`/p/${DEMO_PRESENTATION_PUBLIC_HASH}`}
                             className="bg-card text-foreground font-bold text-base sm:text-lg px-6 sm:px-8 py-4 border-4 border-foreground rounded-xl brutal-press brutal-press-md text-center w-full sm:w-auto"
                         >
-                            Ver exemplo
+                            Ver exemplo (participante)
                         </Link>
                     </div>
                 </div>
@@ -116,7 +116,7 @@ export default function Landing() {
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-8 md:gap-10">
-                        <Step n={1} color="bg-arcade-pink" icon={<ClipboardList className="size-7" />} title="Crie a cobrança" desc="Digite o valor total e o motivo. Adicione os participantes ou divida automaticamente." />
+                        <Step n={1} color="bg-arcade-pink" icon={<ClipboardList className="size-7" />} title="Crie a cobrança" desc="Com sua conta, informe o valor total e o motivo. Adicione os participantes ou divida automaticamente." />
                         <Step n={2} color="bg-arcade-cyan" icon={<MessageSquareText className="size-7" />} title="Mande o link" desc="Compartilhe o link único no WhatsApp. Cada um vê seu valor e o seu Pix." className="md:mt-12" />
                         <Step n={3} color="bg-arcade-green" icon={<CheckCircle2 className="size-7" />} title="Acompanhe os pagamentos" desc="Receba comprovantes, aprove e veja quem ainda está pendente. Tudo num lugar só." className="md:mt-24" />
                     </div>
@@ -132,7 +132,7 @@ export default function Landing() {
                     <Benefit title="Comprovantes organizados" desc="Receba comprovantes anexados a cada participante." />
                     <Benefit title="Sua chave Pix, do seu jeito" desc="CPF, e-mail, telefone, aleatória ou copia e cola." />
                     <Benefit title="Funciona no celular" desc="Quem paga não precisa instalar nada. Tudo no navegador." />
-                    <Benefit title="Grátis pra começar" desc="Crie sua primeira cobrança em menos de 2 minutos." />
+                    <Benefit title="Grátis pra começar" desc="Abra sua conta e monte a primeira cobrança em poucos minutos." />
                 </div>
             </section>
 
@@ -157,14 +157,22 @@ export default function Landing() {
                     Bora rachar do jeito certo?
                 </h2>
                 <p className="text-lg text-muted-foreground mb-10">
-                    Crie sua primeira cobrança compartilhada agora. Leva menos de 2 minutos.
+                    Cadastre-se para criar cobranças, gerenciar participantes e validar comprovantes no painel.
                 </p>
-                <Link
-                    to="/cobrancas/nova"
-                    className="inline-flex items-center justify-center gap-2 bg-accent text-accent-foreground font-black uppercase text-lg px-10 py-5 border-4 border-foreground rounded-xl brutal-press brutal-press-lg"
-                >
-                    Criar cobrança <ArrowRight className="size-5" />
-                </Link>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <Link
+                        to="/cadastro"
+                        className="inline-flex items-center justify-center gap-2 bg-accent text-accent-foreground font-black uppercase text-lg px-10 py-5 border-4 border-foreground rounded-xl brutal-press brutal-press-lg w-full sm:w-auto"
+                    >
+                        Criar conta <ArrowRight className="size-5" />
+                    </Link>
+                    <Link
+                        to="/login?redirect=/cobrancas/nova"
+                        className="inline-flex items-center justify-center gap-2 bg-card text-foreground font-bold text-lg px-10 py-5 border-4 border-foreground rounded-xl brutal-press brutal-press-lg w-full sm:w-auto"
+                    >
+                        Já tenho conta
+                    </Link>
+                </div>
             </section>
         </div>
     );

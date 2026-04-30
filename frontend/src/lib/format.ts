@@ -45,6 +45,29 @@ export const buildPublicLink = (hash: string) =>
 export const buildPublicManageLink = (hash: string, manageToken: string) =>
     `${window.location.origin}/p/${hash}#manage=${encodeURIComponent(manageToken)}`;
 
+/**
+ * WhatsApp com texto pré-preenchido (sem número).
+ * Usa `https://wa.me/?text=` — fluxo mais simples para copiar/colar em grupos do que `api.whatsapp.com/send`.
+ */
+export function buildWhatsAppShareUrl(prefilledMessage: string): string {
+    return `https://wa.me/?text=${encodeURIComponent(prefilledMessage)}`;
+}
+
+/** Mensagem padrão ao divulgar uma cobrança para participantes (organizador). WhatsApp interpreta *texto* como negrito. */
+export function buildOrganizerExpenseShareMessage(
+    expenseTitle: string,
+    publicLink: string,
+): string {
+    return `💸 *Cobrança: ${expenseTitle}*
+
+Oi! Criei essa cobrança no ContaCerta.
+
+👉 Toque no link para ver *seu valor* e pagar via Pix:
+${publicLink}
+
+Se já pagou, pode enviar o comprovante por lá também 👍`;
+}
+
 /** Extrai o token de uma `manage_url` retornada pela API (absoluta ou relativa). */
 export function parseManageTokenFromManageUrl(manageUrl: string): string | null {
     try {

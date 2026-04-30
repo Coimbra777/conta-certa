@@ -9,8 +9,15 @@ import { ModalShell } from "@/components/ModalShell";
 import { StatusBadge } from "@/components/StatusBadge";
 import { api } from "@/lib/api/client";
 import type { Expense, Participant } from "@/lib/types";
-import { buildPublicLink, formatBRL, formatDate, isDueDateBeforeToday } from "@/lib/format";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import {
+    buildOrganizerExpenseShareMessage,
+    buildPublicLink,
+    buildWhatsAppShareUrl,
+    formatBRL,
+    formatDate,
+    isDueDateBeforeToday,
+} from "@/lib/format";
+import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
 
 export default function ExpenseDetail() {
     const { id = "" } = useParams();
@@ -51,6 +58,11 @@ export default function ExpenseDetail() {
         await api.rejectCharge(exp.id, rejectFor.id, reason);
         refresh();
     };
+
+    const publicLink = buildPublicLink(exp.publicHash);
+    const whatsappShareHref = buildWhatsAppShareUrl(
+        buildOrganizerExpenseShareMessage(exp.title, publicLink),
+    );
 
     const onDeleteExpense = async () => {
         setDeleting(true);
@@ -108,8 +120,17 @@ export default function ExpenseDetail() {
 
                         <div className="flex items-center gap-2 flex-wrap p-3 bg-background border-4 border-foreground rounded-xl">
                             <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Link público</span>
-                            <code className="text-sm break-all flex-1 min-w-0">{buildPublicLink(exp.publicHash)}</code>
-                            <CopyButton variant="ghost" value={buildPublicLink(exp.publicHash)} label="Copiar" />
+                            <code className="text-sm break-all flex-1 min-w-0">{publicLink}</code>
+                            <CopyButton variant="ghost" value={publicLink} label="Copiar" />
+                            <a
+                                href={whatsappShareHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm shrink-0"
+                            >
+                                <MessageCircle className="size-4" />
+                                WhatsApp
+                            </a>
                         </div>
                     </div>
                 </div>

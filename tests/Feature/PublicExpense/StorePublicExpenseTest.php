@@ -2,18 +2,23 @@
 
 namespace Tests\Feature\PublicExpense;
 
-use App\Models\Expense;
 use App\Models\ExpenseParticipant;
+use App\Services\PublicExpenseCreatorService;
+use App\Support\ParticipantListParser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * POST /api/public/expenses está em standby (middleware → 410).
+ * Cenários de persistência usam {@see PublicExpenseCreatorService} diretamente.
+ */
 class StorePublicExpenseTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_creates_expense_participants_and_charges(): void
+    private function baseCreatorPayload(): array
     {
-        $response = $this->postJson('/api/public/expenses', [
+        return [
             'owner_name' => 'Ana',
             'owner_phone' => '11988776655',
             'description' => 'Churras',
@@ -24,38 +29,25 @@ class StorePublicExpenseTest extends TestCase
                 ['name' => 'Beto', 'phone' => '11911112222'],
                 ['name' => 'Cris', 'phone' => '11933334444'],
             ],
-        ]);
+        ];
+    }
 
-        $response->assertCreated()
-            ->assertJson(['success' => true])
-            ->assertJsonStructure([
-                'success',
-                'message',
-                'meta',
-                'data' => [
-                    'expense' => [
-                        'id',
-                        'public_hash',
-                        'participant_url',
-                        'manage_url',
-                        'manage_token',
-                        'manage_path',
-                    ],
-                ],
+    public function test_post_public_expenses_returns_standby(): void
+    {
+        $response = $this->postJson('/api/public/expenses', $this->baseCreatorPayload());
+
+        $response->assertStatus(410)
+            ->assertJson([
+                'success' => false,
+                'code' => 'PUBLIC_CREATE_EXPENSE_STANDBY',
             ]);
 
-        $managePath = $response->json('data.expense.manage_path');
-        $this->assertIsString($managePath);
-        $this->assertStringStartsWith('/p/', $managePath);
-        $this->assertStringNotContainsString('manage=', $managePath);
+        $this->assertDatabaseCount('expenses', 0);
+    }
 
-        $manageUrl = $response->json('data.expense.manage_url');
-        $this->assertIsString($manageUrl);
-        $this->assertStringContainsString('#manage=', $manageUrl);
-
-        $participantUrl = $response->json('data.expense.participant_url');
-        $this->assertIsString($participantUrl);
-        $this->assertStringNotContainsString('manage=', $participantUrl);
+    public function test_creator_service_creates_expense_participants_and_charges(): void
+    {
+        $expense = app(PublicExpenseCreatorService::class)->create($this->baseCreatorPayload());
 
         $this->assertDatabaseHas('expenses', [
             'description' => 'Churras',
@@ -63,7 +55,6 @@ class StorePublicExpenseTest extends TestCase
             'owner_phone' => '11988776655',
         ]);
 
-        $expense = Expense::first();
         $this->assertEquals(2, $expense->charges()->count());
         $this->assertEquals(2, ExpenseParticipant::where('expense_id', $expense->id)->count());
         $this->assertTrue(
@@ -71,41 +62,32 @@ class StorePublicExpenseTest extends TestCase
         );
     }
 
-    public function test_accepts_participants_text_instead_of_array(): void
+    public function test_creator_accepts_participants_parsed_from_text(): void
     {
         $text = "Ze 61911112222\nLu 61933334444";
+        $parsed = ParticipantListParser::parse($text);
+        $this->assertCount(2, $parsed);
 
-        $response = $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
-            'description' => 'Pizza',
-            'amount' => 80,
-            'pix_key' => 'pix',
-            'due_date' => now()->addDays(5)->format('Y-m-d'),
-            'participants_text' => $text,
-        ]);
+        $payload = $this->baseCreatorPayload();
+        $payload['description'] = 'Pizza';
+        $payload['amount'] = 80;
+        $payload['participants'] = $parsed;
 
-        $response->assertCreated();
-        $this->assertEquals(2, Expense::first()->charges()->count());
+        $expense = app(PublicExpenseCreatorService::class)->create($payload);
+
+        $this->assertEquals(2, $expense->charges()->count());
     }
 
     public function test_include_owner_as_participant_adds_owner_to_split(): void
     {
-        $response = $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
-            'description' => 'Churras',
-            'amount' => 100,
-            'pix_key' => 'ana@email.com',
-            'due_date' => now()->addDays(5)->format('Y-m-d'),
-            'include_owner_as_participant' => true,
-            'participants' => [
-                ['name' => 'Beto', 'phone' => '11911112222'],
-            ],
-        ]);
+        $payload = $this->baseCreatorPayload();
+        $payload['participants'] = [
+            ['name' => 'Ana', 'phone' => '11988776655'],
+            ['name' => 'Beto', 'phone' => '11911112222'],
+        ];
 
-        $response->assertCreated();
-        $expense = Expense::first();
+        $expense = app(PublicExpenseCreatorService::class)->create($payload);
+
         $this->assertEquals(2, $expense->charges()->count());
 
         $phones = $expense->charges()->with('expenseParticipant')->get()->map(
@@ -119,41 +101,28 @@ class StorePublicExpenseTest extends TestCase
 
     public function test_include_owner_as_participant_does_not_duplicate_phone(): void
     {
-        $response = $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
-            'description' => 'Churras',
-            'amount' => 100,
-            'pix_key' => 'ana@email.com',
-            'due_date' => now()->addDays(5)->format('Y-m-d'),
-            'include_owner_as_participant' => true,
-            'participants' => [
-                ['name' => 'Ana Mesmo', 'phone' => '11988776655'],
-                ['name' => 'Beto', 'phone' => '11911112222'],
-            ],
-        ]);
+        $payload = $this->baseCreatorPayload();
+        $payload['participants'] = [
+            ['name' => 'Ana Mesmo', 'phone' => '11988776655'],
+            ['name' => 'Beto', 'phone' => '11911112222'],
+        ];
 
-        $response->assertCreated();
-        $expense = Expense::first();
+        $expense = app(PublicExpenseCreatorService::class)->create($payload);
+
         $this->assertEquals(2, $expense->charges()->count());
         $this->assertEquals(2, ExpenseParticipant::where('expense_id', $expense->id)->count());
     }
 
     public function test_public_validate_participant_matches_expense_participant(): void
     {
-        $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
-            'description' => 'Churras',
-            'amount' => 100,
-            'pix_key' => 'ana@email.com',
-            'due_date' => now()->addDays(5)->format('Y-m-d'),
+        $expense = app(PublicExpenseCreatorService::class)->create([
+            ...$this->baseCreatorPayload(),
             'participants' => [
                 ['name' => 'Beto', 'phone' => '11911112222'],
             ],
-        ])->assertCreated();
+        ]);
 
-        $hash = Expense::first()->public_hash;
+        $hash = $expense->public_hash;
         $this->postJson("/api/v1/public/expenses/{$hash}/validate-participant", [
             'name' => 'Beto',
             'phone' => '11911112222',
@@ -168,26 +137,23 @@ class StorePublicExpenseTest extends TestCase
     {
         $due = now()->addDays(5)->format('Y-m-d');
         $common = ['name' => 'Beto', 'phone' => '11911112222'];
+        $creator = app(PublicExpenseCreatorService::class);
 
-        $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
+        $creator->create([
+            ...$this->baseCreatorPayload(),
             'description' => 'Churras A',
             'amount' => 100,
-            'pix_key' => 'pix',
             'due_date' => $due,
             'participants' => [$common],
-        ])->assertCreated();
+        ]);
 
-        $this->postJson('/api/public/expenses', [
-            'owner_name' => 'Ana',
-            'owner_phone' => '11988776655',
+        $creator->create([
+            ...$this->baseCreatorPayload(),
             'description' => 'Churras B',
             'amount' => 200,
-            'pix_key' => 'pix',
             'due_date' => $due,
             'participants' => [$common],
-        ])->assertCreated();
+        ]);
 
         $normalized = preg_replace('/\D+/', '', $common['phone']);
         $this->assertEquals(
