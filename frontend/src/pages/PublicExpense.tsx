@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, isPublicExpenseUsingMock } from "@/lib/api/client";
+import {
+    CLOSED_EXPENSE_ORGANIZER,
+    CLOSED_EXPENSE_PUBLIC_PARTICIPANT,
+} from "@/lib/closedExpenseCopy";
 import { mockApi } from "@/lib/api/mockStore";
 import type { Expense, Participant } from "@/lib/types";
 import { PixKeyBox } from "@/components/PixKeyBox";
@@ -70,6 +74,12 @@ export default function PublicExpense() {
         const token = getPublicManageToken(hash);
         api.getPublicExpense(hash, token).then(setExp);
     }, [hash, searchParams, navigate]);
+
+    useEffect(() => {
+        if (exp?.status === "closed") setParticipant(null);
+    }, [exp?.status]);
+
+    const isClosed = exp?.status === "closed";
 
     const identify = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -218,42 +228,78 @@ export default function PublicExpense() {
 
             {exp.canManage ? (
                 <div className="px-5 sm:px-6 pt-4 max-w-md mx-auto w-full">
-                    <div className="rounded-xl border-4 border-dashed border-foreground/40 bg-muted/50 px-4 py-3 text-sm flex flex-col gap-3">
-                        <p className="font-bold uppercase text-xs tracking-widest text-muted-foreground">
-                            Modo organizador
-                        </p>
-                        <p className="leading-snug">
-                            Compartilhe o{" "}
-                            <strong>link para participantes</strong> com quem vai
-                            pagar (ele não contém o token de gestão). Guarde o{" "}
-                            <strong>link de gerenciamento</strong> em lugar seguro:
-                            com ele você aprova ou rejeita comprovantes. Se perder
-                            esse link, não há recuperação automática neste MVP.
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
-                            <CopyButton
-                                value={buildPublicLink(hash)}
-                                label="Copiar link para participantes"
-                                className="flex-1 text-sm py-3"
-                            />
-                            {getPublicManageToken(hash) ? (
+                    {isClosed ? (
+                        <div
+                            role="status"
+                            className="rounded-xl border-4 border-emerald-700/40 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-950/30 dark:text-emerald-50"
+                        >
+                            <strong className="font-black uppercase text-xs tracking-widest block mb-1">
+                                {CLOSED_EXPENSE_ORGANIZER.title}
+                            </strong>
+                            {CLOSED_EXPENSE_ORGANIZER.lines.map((line) => (
+                                <p key={line} className="leading-snug">
+                                    {line}
+                                </p>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border-4 border-dashed border-foreground/40 bg-muted/50 px-4 py-3 text-sm flex flex-col gap-3">
+                            <p className="font-bold uppercase text-xs tracking-widest text-muted-foreground">
+                                Modo organizador
+                            </p>
+                            <p className="leading-snug">
+                                Compartilhe o{" "}
+                                <strong>link para participantes</strong> com quem vai
+                                pagar (ele não contém o token de gestão). Guarde o{" "}
+                                <strong>link de gerenciamento</strong> em lugar
+                                seguro: com ele você aprova ou rejeita comprovantes.
+                                Se perder esse link, não há recuperação automática
+                                neste MVP.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                                 <CopyButton
-                                    value={buildPublicManageLink(
-                                        hash,
-                                        getPublicManageToken(hash)!,
-                                    )}
-                                    label="Copiar link de gerenciamento"
-                                    variant="ghost"
+                                    value={buildPublicLink(hash)}
+                                    label="Copiar link para participantes"
                                     className="flex-1 text-sm py-3"
                                 />
-                            ) : null}
+                                {getPublicManageToken(hash) ? (
+                                    <CopyButton
+                                        value={buildPublicManageLink(
+                                            hash,
+                                            getPublicManageToken(hash)!,
+                                        )}
+                                        label="Copiar link de gerenciamento"
+                                        variant="ghost"
+                                        className="flex-1 text-sm py-3"
+                                    />
+                                ) : null}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             ) : null}
 
             <main className="px-5 sm:px-6 py-6 max-w-md mx-auto flex flex-col gap-5">
-                {!participant ? (
+                {isClosed ? (
+                    !exp.canManage ? (
+                        <div
+                            role="status"
+                            className="border-4 border-foreground bg-card rounded-2xl brutal-shadow p-5"
+                        >
+                            <strong className="font-display text-xl uppercase block mb-2">
+                                {CLOSED_EXPENSE_PUBLIC_PARTICIPANT.title}
+                            </strong>
+                            {CLOSED_EXPENSE_PUBLIC_PARTICIPANT.lines.map((line) => (
+                                <p
+                                    key={line}
+                                    className="text-sm text-muted-foreground leading-snug"
+                                >
+                                    {line}
+                                </p>
+                            ))}
+                        </div>
+                    ) : null
+                ) : !participant ? (
                     <form
                         onSubmit={identify}
                         className="border-4 border-foreground bg-card rounded-2xl brutal-shadow p-5 flex flex-col gap-4"

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Exceptions\HttpApiException;
 use App\Models\Expense;
+use App\Support\ExpenseClosedPolicy;
 use App\Support\ManageTokenResolver;
 use Illuminate\Http\Request;
 
@@ -43,13 +44,8 @@ trait AuthorizesPublicExpense
      */
     protected function assertExpenseOpen(Expense $expense): void
     {
-        if ($expense->status === 'closed') {
-            throw new HttpApiException(
-                'Esta despesa foi finalizada e nao aceita mais alteracoes.',
-                'EXPENSE_CLOSED',
-                422,
-            );
-        }
+        ExpenseClosedPolicy::assertOpen($expense);
     }
 
 }
+

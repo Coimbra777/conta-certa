@@ -20,6 +20,8 @@ Modelo:
 User → Expense → ExpenseParticipant → Charge → PaymentProof
 ```
 
+**Estados da cobrança (`Expense.status`):** **`open`** (ativa) e **`closed`** (finalizada). O fechamento ocorre automaticamente quando todas as cobranças individuais (`Charge`) estão validadas; em **`closed`** a API rejeita alterações (`EXPENSE_CLOSED`), mas mantém consulta e visualização de comprovantes para quem está autorizado. No painel e na página pública, a UI trata **`closed`** como somente leitura (sem compartilhamento ativo nem envio de comprovante).
+
 ## Rodando com Docker
 
 ```bash

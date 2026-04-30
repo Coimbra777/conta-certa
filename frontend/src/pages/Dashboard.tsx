@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CopyButton } from "@/components/CopyButton";
 import { api } from "@/lib/api/client";
+import { CLOSED_EXPENSE_SHARE_DISABLED_HINT } from "@/lib/closedExpenseCopy";
 import type { ApiStatus, Expense } from "@/lib/types";
 import {
     buildOrganizerExpenseShareMessage,
@@ -276,6 +277,7 @@ export default function Dashboard() {
                                                 cardPublicLink,
                                             ),
                                         );
+                                    const cardClosed = exp.status === "closed";
 
                                     return (
                                         <li
@@ -365,21 +367,40 @@ export default function Dashboard() {
                                                 >
                                                     Ver detalhes
                                                 </Link>
-                                                <CopyButton
-                                                    variant="ghost"
-                                                    value={cardPublicLink}
-                                                    label="Copiar link"
-                                                />
-                                                <a
-                                                    href={cardWhatsAppHref}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm"
-                                                    title="Compartilhar no WhatsApp"
-                                                >
-                                                    <MessageCircle className="size-4" />
-                                                    WhatsApp
-                                                </a>
+                                                {cardClosed ? (
+                                                    <span
+                                                        className="text-xs font-bold text-muted-foreground px-2 py-2 max-w-[200px] leading-snug"
+                                                        title={
+                                                            CLOSED_EXPENSE_SHARE_DISABLED_HINT
+                                                        }
+                                                    >
+                                                        {
+                                                            CLOSED_EXPENSE_SHARE_DISABLED_HINT
+                                                        }
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <CopyButton
+                                                            variant="ghost"
+                                                            value={
+                                                                cardPublicLink
+                                                            }
+                                                            label="Copiar link"
+                                                        />
+                                                        <a
+                                                            href={
+                                                                cardWhatsAppHref
+                                                            }
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm"
+                                                            title="Compartilhar no WhatsApp"
+                                                        >
+                                                            <MessageCircle className="size-4" />
+                                                            WhatsApp
+                                                        </a>
+                                                    </>
+                                                )}
                                             </div>
                                         </li>
                                     );

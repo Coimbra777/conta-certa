@@ -10,6 +10,9 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { api } from "@/lib/api/client";
 import type { Expense, Participant } from "@/lib/types";
 import {
+    CLOSED_EXPENSE_ORGANIZER,
+} from "@/lib/closedExpenseCopy";
+import {
     buildOrganizerExpenseShareMessage,
     buildPublicLink,
     buildWhatsAppShareUrl,
@@ -104,7 +107,9 @@ export default function ExpenseDetail() {
     const proofs = exp.participants.filter((p) => p.status === "proof_sent").length;
     const pending = exp.totalAmount - paid;
     const allPaid = exp.participants.length > 0 && exp.participants.every((p) => p.status === "validated");
+    const isClosed = exp.status === "closed";
     const canDelete =
+        !isClosed &&
         exp.participants.length > 0 &&
         exp.participants.every((p) => p.status === "pending");
 
@@ -119,9 +124,11 @@ export default function ExpenseDetail() {
     };
 
     const publicLink = buildPublicLink(exp.publicHash);
-    const whatsappShareHref = buildWhatsAppShareUrl(
-        buildOrganizerExpenseShareMessage(exp.title, publicLink),
-    );
+    const whatsappShareHref = isClosed
+        ? ""
+        : buildWhatsAppShareUrl(
+              buildOrganizerExpenseShareMessage(exp.title, publicLink),
+          );
 
     const onDeleteExpense = async () => {
         setDeleting(true);
@@ -147,6 +154,21 @@ export default function ExpenseDetail() {
                                 <h1 className="font-display text-3xl sm:text-4xl uppercase">{exp.title}</h1>
                                 {exp.description && <p className="text-muted-foreground mt-1">{exp.description}</p>}
                                 <p className="text-sm text-muted-foreground mt-1">Vence em {formatDate(exp.dueDate)}</p>
+                                {isClosed && (
+                                    <div
+                                        role="status"
+                                        className="mt-3 rounded-xl border-4 border-emerald-700/40 bg-emerald-50 px-3 py-3 text-sm font-medium text-emerald-950 dark:border-emerald-500/35 dark:bg-emerald-950/30 dark:text-emerald-50"
+                                    >
+                                        <strong className="font-black uppercase text-xs tracking-wide block mb-1">
+                                            {CLOSED_EXPENSE_ORGANIZER.title}
+                                        </strong>
+                                        {CLOSED_EXPENSE_ORGANIZER.lines.map((line) => (
+                                            <p key={line} className="leading-snug">
+                                                {line}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                                 {(exp.status === "open" || exp.status === undefined) &&
                                     isDueDateBeforeToday(exp.dueDate) && (
                                         <div
@@ -177,20 +199,22 @@ export default function ExpenseDetail() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap p-3 bg-background border-4 border-foreground rounded-xl">
-                            <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Link público</span>
-                            <code className="text-sm break-all flex-1 min-w-0">{publicLink}</code>
-                            <CopyButton variant="ghost" value={publicLink} label="Copiar" />
-                            <a
-                                href={whatsappShareHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm shrink-0"
-                            >
-                                <MessageCircle className="size-4" />
-                                WhatsApp
-                            </a>
-                        </div>
+                        {!isClosed ? (
+                            <div className="flex items-center gap-2 flex-wrap p-3 bg-background border-4 border-foreground rounded-xl">
+                                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Link público</span>
+                                <code className="text-sm break-all flex-1 min-w-0">{publicLink}</code>
+                                <CopyButton variant="ghost" value={publicLink} label="Copiar" />
+                                <a
+                                    href={whatsappShareHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 border-4 border-foreground bg-arcade-cyan px-3 py-2 rounded-lg text-xs font-black uppercase brutal-press brutal-press-sm shrink-0"
+                                >
+                                    <MessageCircle className="size-4" />
+                                    WhatsApp
+                                </a>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
 
@@ -200,8 +224,8 @@ export default function ExpenseDetail() {
                     <h2 className="font-display text-2xl uppercase mb-4">Participantes ({exp.participants.length})</h2>
                     <ParticipantList
                         participants={exp.participants}
-                        onApprove={onApprove}
-                        onReject={(p) => setRejectFor(p)}
+                        onApprove={isClosed ? undefined : onApprove}
+                        onReject={isClosed ? undefined : (p) => setRejectFor(p)}
                         onViewProof={(p) => setProofFor(p)}
                     />
                 </section>

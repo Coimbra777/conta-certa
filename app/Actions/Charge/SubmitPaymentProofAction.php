@@ -10,6 +10,7 @@ use App\Models\Charge;
 use App\Models\Expense;
 use App\Services\PaymentProofService;
 use App\Support\ChargeStatusTransition;
+use App\Support\ExpenseClosedPolicy;
 use App\Support\PublicParticipantChargeResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,8 @@ class SubmitPaymentProofAction
 
     public function execute(Expense $expense, string $name, string $phone, UploadedFile $file): Charge
     {
+        ExpenseClosedPolicy::assertOpen($expense);
+
         $charge = PublicParticipantChargeResolver::findChargeForExactPublicParticipant(
             $expense,
             $name,

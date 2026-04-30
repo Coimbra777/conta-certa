@@ -17,7 +17,7 @@
 | `app/Http/Resources/` | Formato JSON das respostas |
 | `app/Http/Responses/ApiResponse.php` | Envelope padrão |
 | `app/Models/` | Eloquent (`User`, `Expense`, `ExpenseParticipant`, `Charge`, `PaymentProof`) |
-| `app/Support/` | Normalização, transições de status, autorização auxiliar |
+| `app/Support/` | Normalização, transições de status, **`ExpenseClosedPolicy`** (bloqueio de mutações em despesa `closed`), autorização auxiliar |
 | `database/migrations/` | Schema |
 | `tests/Feature/` | Testes de API |
 
@@ -38,7 +38,11 @@ No MVP, **`due_date`** não impede envio de comprovante nem validação após o 
 1. Organizador **POST /api/v1/expenses** → `Expense` sem cobranças por participante até **POST …/participants**.  
 2. Serviço cria **ExpenseParticipant** + **Charge** em **`POST …/participants`** apenas para **telefones novos**; valores novos somam aos já gravados até fechar `total_amount`. Duplicata de telefone (payload ou já na despesa) → **422** `DUPLICATE_PARTICIPANT`.  
 3. Participante no link público → **validate-participant** / **submit-proof** → **PaymentProof** + mudança de status.  
-4. Organizador → **PATCH charges/{id}/validate|reject** → atualização de **Charge** e possível fechamento da **Expense**.
+4. Organizador → **PATCH charges/{id}/validate|reject** → atualização de **Charge** e possível fechamento automático da **Expense** (`status = closed` quando todas as charges validadas).
+
+### Despesa `closed`
+
+Com **`Expense.status === closed`**, mutações (despesa, participantes, comprovantes, validar/rejeitar) retornam **`EXPENSE_CLOSED`** (**422**). Leitura (**GET**) e **visualização/download de comprovante** para dono ou gestão pública autorizada **permanecem** disponíveis.
 
 ### Criação pública anônima (`POST /api/public/expenses`)
 

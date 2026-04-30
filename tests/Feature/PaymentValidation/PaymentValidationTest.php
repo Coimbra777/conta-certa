@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\ExpenseParticipant;
 use App\Models\PaymentProof;
 use App\Models\User;
+use App\Support\ExpenseClosedPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\ProofUploadFixture;
@@ -274,5 +275,57 @@ class PaymentValidationTest extends TestCase
             ->get("/api/v1/charges/{$charge1->id}/proofs/latest/view")
             ->assertStatus(404)
             ->assertJsonPath('code', 'NOT_FOUND');
+    }
+
+    public function test_validate_charge_returns_expense_closed_when_expense_closed(): void
+    {
+        [$admin, $expense, $charge1] = $this->createExpenseSetup();
+
+        $expense->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/charges/{$charge1->id}/validate")
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_reject_charge_returns_expense_closed_when_expense_closed(): void
+    {
+        [$admin, $expense, , $charge2] = $this->createExpenseSetup();
+
+        $expense->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/charges/{$charge2->id}/reject", [
+                'reason' => 'Teste.',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_owner_can_view_proof_when_expense_closed(): void
+    {
+        Storage::fake('local');
+
+        [$admin, $expense, $charge1, $charge2] = $this->createExpenseSetup();
+
+        Storage::disk('local')->put('payment-proofs/1/proof.jpg', 'a');
+        Storage::disk('local')->put('payment-proofs/2/proof.jpg', 'b');
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/charges/{$charge1->id}/validate")
+            ->assertOk();
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/charges/{$charge2->id}/validate")
+            ->assertOk();
+
+        $expense->refresh();
+        $this->assertSame('closed', $expense->status);
+
+        $this->actingAs($admin, 'sanctum')
+            ->get("/api/v1/charges/{$charge1->id}/proofs/latest/view")
+            ->assertOk();
     }
 }

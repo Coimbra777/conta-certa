@@ -10,6 +10,7 @@
 - O link **para participantes** não deve incluir esse token. Em fluxos onde a API devolve links de criação/gestão, prefira **`participant_url`** e **`manage_url`** (fragmento `#manage=`) à exposição manual do token (campo `manage_token` pode existir por compatibilidade).
 - **Fluxo principal atual:** organizador **autenticado** no painel. Gestão só com **`manage_token`** é **experimental / standby** como narrativa de produto (cobranças `created_by = null` não aparecem no painel).
 - **GET público** sem gestão retorna apenas **totais agregados** (quantidade de participantes, pagos, em aberto) — não lista nome/telefone/status por pessoa.
+- **`manage_token`** não autoriza mutação se a despesa já estiver **`closed`** — resposta **`EXPENSE_CLOSED`** (**422**); comprovantes antigos ainda podem ser lidos pelos endpoints dedicados quando permitido pela mesma autorização de gestão/dono.
 
 ### Criação sem cadastro (standby)
 

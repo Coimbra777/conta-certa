@@ -208,6 +208,10 @@ function mapPublicExpenseFromApi(e: Record<string, unknown>): Expense {
                   rejectionReason: m.rejection_reason
                       ? String(m.rejection_reason)
                       : undefined,
+                  proofSentAt: m.proof_uploaded_at
+                      ? String(m.proof_uploaded_at)
+                      : undefined,
+                  hasProof: Boolean(m.has_proof),
               }))
             : [];
 

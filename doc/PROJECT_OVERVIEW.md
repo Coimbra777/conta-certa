@@ -16,7 +16,7 @@ Substituir planilhas e cobranças informais sem visibilidade de quem já pagou o
 4. Pagamento Pix **fora do sistema**.
 5. Participante **informa nome + telefone**, valida correspondência com a cobrança e **envia comprovante** quando o status permitir.
 6. Organizador **valida ou rejeita** no painel autenticado (`PATCH .../charges/{id}/validate|reject`). **Rejeição exige motivo** (`reason`).
-7. Quando **todas** as cobranças estiverem **validadas**, a despesa pode ser **encerrada** (`closed`) conforme regras do backend.
+7. Quando **todas** as cobranças estiverem **validadas**, a despesa passa a **`closed`** (automático no backend ao validar a última; opcionalmente **`PATCH .../close`** na API pública com gestão). Em **`closed`**, não há mais edição nem novos comprovantes — apenas consulta e visualização autorizada de histórico/comprovantes.
 
 ## Fluxo público do participante (ativo)
 
@@ -48,6 +48,7 @@ A API continua aceitando **`manage_token`** em rotas públicas de gestão (patch
 ### Regras de produto (MVP)
 
 - **`due_date`:** informativo; não bloqueia fluxos após o dia do vencimento.
+- **`Expense.status`:** `open` (ativa) ou `closed` (finalizada). Com `closed`, toda mutação na API retorna **`EXPENSE_CLOSED`** (**422**); leitura e comprovantes autorizados permanecem.
 - **`amount_per_participant` na despesa:** quando cada participante tem valor diferente no backend, esse campo guarda a **média** (total ÷ N); valores reais estão em cada **Charge**.
 
 ## Entidades principais

@@ -25,6 +25,7 @@ use App\Models\Expense;
 use App\Services\ExpenseService;
 use App\Services\PublicExpenseCreatorService;
 use App\Support\ChargeProofHttpResponse;
+use App\Support\ExpenseClosedPolicy;
 use App\Support\PublicParticipantChargeResolver;
 use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
@@ -82,9 +83,9 @@ class PublicExpenseController extends Controller
 
         if ($expense->status === 'closed') {
             return ApiResponse::error(
-                'Esta despesa ja foi finalizada.',
-                'INVALID_EXPENSE_STATE',
-                422,
+                ExpenseClosedPolicy::MESSAGE,
+                ExpenseClosedPolicy::CODE,
+                ExpenseClosedPolicy::HTTP_STATUS,
             );
         }
 

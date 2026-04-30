@@ -156,4 +156,24 @@ describe("PublicExpense", () => {
             screen.queryByRole("button", { name: /Continuar no modo demonstração/i }),
         ).toBeNull();
     });
+
+    it("when expense is closed, hides identification form and shows finalized copy", async () => {
+        vi.spyOn(api, "getPublicExpense").mockResolvedValue(
+            baseExpense({
+                status: "closed",
+                participantsTotalCount: 2,
+                validatedChargesCount: 2,
+                openChargesCount: 0,
+            }),
+        );
+        renderRoute("/p/other-hash");
+        await waitFor(() =>
+            expect(screen.queryByText(/Quem é você/i)).not.toBeInTheDocument(),
+        );
+        const titles = screen.getAllByText(/^Cobrança finalizada$/i);
+        expect(titles.length).toBeGreaterThan(0);
+        expect(
+            screen.getByText(/Não é mais necessário enviar comprovante/i),
+        ).toBeInTheDocument();
+    });
 });

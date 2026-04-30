@@ -114,12 +114,19 @@ class Charge extends Model
     {
         $row = $this->participantIdentity();
 
+        $latestProof = null;
+        if ($this->relationLoaded('paymentProofs')) {
+            $latestProof = $this->paymentProofs->sortByDesc('id')->first();
+        }
+
         return [
             'charge_id' => $this->id,
             'charge_status' => $this->status,
             'amount' => $this->amount,
             'name' => $row['name'],
             'phone' => $row['phone'],
+            'has_proof' => $latestProof !== null,
+            'proof_uploaded_at' => $latestProof?->created_at?->toIso8601String(),
         ];
     }
 

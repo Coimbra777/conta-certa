@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Expense;
 
+use App\Models\Expense;
+use App\Models\ExpenseParticipant;
 use App\Models\User;
+use App\Support\ExpenseClosedPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -593,5 +596,146 @@ class ExpenseTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['participants']);
+    }
+
+    public function test_patch_expense_rejected_when_closed(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload());
+        $expenseId = $create->json('data.expense.id');
+
+        Expense::query()->whereKey($expenseId)->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/expenses/{$expenseId}", [
+                'description' => 'Alterado',
+                'total_amount' => 100.00,
+                'due_date' => now()->addDays(5)->format('Y-m-d'),
+                'pix_key' => '11999999999',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_delete_expense_rejected_when_closed(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        Expense::query()->whereKey($expenseId)->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/v1/expenses/{$expenseId}")
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_add_participants_rejected_when_closed(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        Expense::query()->whereKey($expenseId)->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_update_participant_rejected_when_closed(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 60.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        $participantId = ExpenseParticipant::query()->where('expense_id', $expenseId)->first()->id;
+
+        Expense::query()->whereKey($expenseId)->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/v1/expenses/{$expenseId}/participants/{$participantId}", [
+                'name' => 'Novo nome',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
+    }
+
+    public function test_remove_participant_rejected_when_closed(): void
+    {
+        $admin = $this->createAdminUser();
+
+        $create = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/v1/expenses', $this->expensePayload([
+                'total_amount' => 90.00,
+            ]));
+        $expenseId = $create->json('data.expense.id');
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/v1/expenses/{$expenseId}/participants", [
+                'participants' => [
+                    ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Participant 2', 'phone' => '11000000003', 'amount' => 30],
+                ],
+            ])
+            ->assertOk();
+
+        $participantId = ExpenseParticipant::query()
+            ->where('expense_id', $expenseId)
+            ->where('phone_normalized', '11000000003')
+            ->first()
+            ->id;
+
+        Expense::query()->whereKey($expenseId)->update(['status' => 'closed']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/v1/expenses/{$expenseId}/participants/{$participantId}")
+            ->assertStatus(422)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE)
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE);
     }
 }

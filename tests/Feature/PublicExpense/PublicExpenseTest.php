@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Expense;
 use App\Models\ExpenseParticipant;
 use App\Models\User;
+use App\Support\ExpenseClosedPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -608,7 +609,8 @@ class PublicExpenseTest extends TestCase
 
         $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Esta despesa ja foi finalizada.');
+            ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE)
+            ->assertJsonPath('code', ExpenseClosedPolicy::CODE);
     }
 
     public function test_public_actions_blocked_after_expense_closed(): void
@@ -620,39 +622,53 @@ class PublicExpenseTest extends TestCase
         $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
             ->assertOk();
 
-        $msg = 'Esta despesa foi finalizada e nao aceita mais alteracoes.';
+        $msg = ExpenseClosedPolicy::MESSAGE;
 
         $this->patchJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'), [
             'description' => 'X',
             'amount' => 99,
             'due_date' => now()->format('Y-m-d'),
             'pix_key' => 'k',
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
             'participants' => [['name' => 'Novo', 'phone' => '11911112222']],
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
             'proof' => $file,
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $this->patchJson("/api/v1/public/charges/{$charge2->id}/validate", [
             'manage_token' => 'manage-token-secret',
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $this->patchJson("/api/v1/public/charges/{$charge2->id}/reject", [
             'manage_token' => 'manage-token-secret',
             'reason' => 'Comprovante ilegível.',
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
-        ])->assertStatus(422)->assertJsonPath('message', $msg);
+        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
+    }
+
+    public function test_public_get_expense_when_closed_includes_read_only_flags(): void
+    {
+        $this->createExpenseWithCharges();
+        Charge::query()->update(['status' => 'validated']);
+
+        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+            ->assertOk();
+
+        $this->getJson('/api/v1/public/expenses/test-hash-123')
+            ->assertOk()
+            ->assertJsonPath('data.expense.status', 'closed')
+            ->assertJsonPath('data.expense.is_closed', true);
     }
 
     public function test_public_manage_can_view_latest_proof_inline(): void

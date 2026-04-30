@@ -71,6 +71,13 @@ PATCH  /api/v1/expenses/{id}/participants/{participantId}
 DELETE /api/v1/expenses/{id}/participants/{participantId}
 ```
 
+### Status `open` e `closed`
+
+- **`open`** — cobrança ativa: mutações permitidas conforme regras existentes (participantes, Pix, validação/rejeição, comprovantes).
+- **`closed`** — cobrança **finalizada**: quando **todas** as `Charge` estão **`validated`**, o backend marca a despesa como **`closed`** (também é possível encerrar pela rota pública **`PATCH .../close`** com `manage_token` quando todas validadas). Neste estado, **nenhuma mutação** é aceita (edição da despesa, exclusão, participantes, envio de comprovante, validar/rejeitar); leitura (`GET`) e **visualização/dowload de comprovante** autorizados continuam funcionando.
+
+Tentativa de alteração com despesa **`closed`** → **422** com código **`EXPENSE_CLOSED`** e mensagem estável *(Esta cobrança já foi finalizada e não pode mais ser alterada.)*.
+
 ### `POST .../participants` — adicionar apenas participantes novos
 
 Cada telefone no corpo deve ser **novo** nesta despesa. Duplicata no payload ou telefone já cadastrado → **422** `DUPLICATE_PARTICIPANT` com a mensagem *Já existe um participante com este telefone nesta despesa.*

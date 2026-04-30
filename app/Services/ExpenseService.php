@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\ExpenseParticipant;
 use App\Models\User;
 use App\Support\ChargeStatusTransition;
+use App\Support\ExpenseClosedPolicy;
 use App\Support\PhoneNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -39,9 +40,7 @@ class ExpenseService
 
     public function updateExpense(Expense $expense, array $data): Expense
     {
-        if ($expense->status === 'closed') {
-            throw new \DomainException('Esta despesa foi finalizada e nao aceita mais alteracoes.');
-        }
+        ExpenseClosedPolicy::assertOpen($expense);
 
         $oldTotal = (float) $expense->total_amount;
         $newTotal = (float) $data['total_amount'];
@@ -84,9 +83,7 @@ class ExpenseService
      */
     public function addParticipantsToExpense(Expense $expense, array $participants): Expense
     {
-        if ($expense->status === 'closed') {
-            throw new \DomainException('Esta despesa foi finalizada e nao aceita mais alteracoes.');
-        }
+        ExpenseClosedPolicy::assertOpen($expense);
 
         if ($expense->charges()->where('status', '!=', 'pending')->exists()) {
             throw new \DomainException(
@@ -246,6 +243,8 @@ class ExpenseService
      */
     public function deleteExpenseIfAllowed(Expense $expense): void
     {
+        ExpenseClosedPolicy::assertOpen($expense);
+
         if ($expense->charges()->where('status', '!=', 'pending')->exists()) {
             throw new HttpApiException(
                 'Esta cobrança já possui movimentações e não pode ser excluída.',
@@ -305,9 +304,7 @@ class ExpenseService
     public function updateExpenseParticipant(ExpenseParticipant $participant, array $data): Expense
     {
         $expense = $participant->expense;
-        if ($expense->status === 'closed') {
-            throw new \DomainException('Esta despesa foi finalizada e nao aceita mais alteracoes.');
-        }
+        ExpenseClosedPolicy::assertOpen($expense);
 
         $charges = $expense->charges;
         ChargeStatusTransition::assertAllPendingForRedistribution($charges);
@@ -374,9 +371,7 @@ class ExpenseService
     public function deleteExpenseParticipant(ExpenseParticipant $participant): Expense
     {
         $expense = $participant->expense;
-        if ($expense->status === 'closed') {
-            throw new \DomainException('Esta despesa foi finalizada e nao aceita mais alteracoes.');
-        }
+        ExpenseClosedPolicy::assertOpen($expense);
 
         $charges = $expense->charges;
         ChargeStatusTransition::assertAllPendingForRedistribution($charges);

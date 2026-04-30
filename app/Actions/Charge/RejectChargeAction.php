@@ -5,6 +5,7 @@ namespace App\Actions\Charge;
 use App\Exceptions\HttpApiException;
 use App\Models\Charge;
 use App\Support\ChargeStatusTransition;
+use App\Support\ExpenseClosedPolicy;
 use Illuminate\Support\Str;
 
 class RejectChargeAction
@@ -14,6 +15,13 @@ class RejectChargeAction
      */
     public function execute(Charge $charge, string $reason, string $audience): Charge
     {
+        $expense = $charge->expense;
+        if (! $expense) {
+            throw new HttpApiException('Registro não encontrado.', 'NOT_FOUND', 404);
+        }
+
+        ExpenseClosedPolicy::assertOpen($expense);
+
         $this->assertCanReject($charge, $audience);
 
         ChargeStatusTransition::assertTransition($charge->status, 'rejected');
