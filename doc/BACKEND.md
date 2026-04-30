@@ -9,7 +9,7 @@
 
 | Caminho | Função |
 |---------|--------|
-| `app/Http/Controllers/Api/V1/` | Controllers finos: auth, expenses, teams, public |
+| `app/Http/Controllers/Api/V1/` | Controllers finos: auth, expenses, charges, public |
 | `app/Actions/` | Casos de uso por agregado (Charge, Expense) |
 | `app/Services/` | Orquestração e regras mais longas |
 | `app/Http/Requests/Api/V1/` | Validação e normalização |
@@ -30,7 +30,7 @@ Não há **Policies** Laravel separadas: autorização feita por queries em cont
 - `ValidateChargeAction` / `RejectChargeAction` — transições de `Charge`.
 - `PublicExpenseCreatorService` — fluxo sem usuário autenticado (cobrança com `team_id` nulo).
 
-Rotas legadas `teams/*` (sem CRUD de despesa aninhado) permanecem para evolução futura.
+Rotas `teams/*` não estão expostas na API atual; modelos/tabelas permanecem para eventual reintrodução.
 
 ## Testes
 
@@ -45,7 +45,7 @@ Rotas legadas `teams/*` (sem CRUD de despesa aninhado) permanecem para evoluçã
 
 ### Participantes da cobrança (`expense_participants`)
 
-Quem aparece no link público e nas cobranças é **`ExpenseParticipant`** (snapshot por despesa). `Charge` expõe nos JSON **`participant`** e **`member`** com o mesmo payload quando há snapshot; dados antigos só em `team_member_id` continuam resolvidos via fallback em `ChargeResource` / `PublicExpenseResource` / `PublicParticipantChargeResolver`.
+Quem aparece no link público e nas cobranças é **`ExpenseParticipant`** (snapshot por despesa). Cada charge expõe **`participant`**; dados legados só com `team_member_id` são convertidos para o mesmo formato JSON em **`App\Support\ChargeParticipantResolver`** (único ponto de fallback). **`PublicParticipantChargeResolver`** delega a esse resolver para o fluxo público.
 
 O módulo **`teams` / `team_members`** foi preservado para futuras features como times de futebol, grupos recorrentes ou agenda de contatos, mas o fluxo principal de cobrança usa **`expense_participants`**.
 

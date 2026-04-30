@@ -4,12 +4,10 @@ namespace Tests\Feature\PaymentValidation;
 
 use App\Models\Charge;
 use App\Models\Expense;
+use App\Models\ExpenseParticipant;
 use App\Models\PaymentProof;
-use App\Models\Team;
-use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\ProofUploadFixture;
 use Tests\TestCase;
@@ -18,29 +16,15 @@ class PaymentValidationTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * @return array{0: User, 1: Expense, 2: Charge, 3: Charge}
+     */
     private function createExpenseSetup(): array
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => $admin->name,
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-
-        $member = TeamMember::create([
-            'team_id' => $team->id,
-            'name' => 'Maria',
-            'phone' => '11000000002',
-            'role' => 'member',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'description' => 'Test expense',
             'total_amount' => 100.00,
@@ -54,9 +38,26 @@ class PaymentValidationTest extends TestCase
             'manage_token' => 'val-manage-token',
         ])->save();
 
+        $epAdmin = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => $admin->name,
+            'phone' => '11000000001',
+            'phone_normalized' => '11000000001',
+            'amount' => 50.00,
+        ]);
+
+        $epMaria = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Maria',
+            'phone' => '11000000002',
+            'phone_normalized' => '11000000002',
+            'amount' => 50.00,
+        ]);
+
         $charge1 = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => TeamMember::where('user_id', $admin->id)->first()->id,
+            'expense_participant_id' => $epAdmin->id,
+            'team_member_id' => null,
             'amount' => 50.00,
             'due_date' => $expense->due_date,
             'status' => 'proof_sent',
@@ -64,7 +65,8 @@ class PaymentValidationTest extends TestCase
 
         $charge2 = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member->id,
+            'expense_participant_id' => $epMaria->id,
+            'team_member_id' => null,
             'amount' => 50.00,
             'due_date' => $expense->due_date,
             'status' => 'proof_sent',
@@ -86,12 +88,12 @@ class PaymentValidationTest extends TestCase
             'status' => 'pending',
         ]);
 
-        return [$admin, $team, $expense, $charge1, $charge2, $member];
+        return [$admin, $expense, $charge1, $charge2];
     }
 
     public function test_admin_can_validate_charge(): void
     {
-        [$admin, , , $charge1] = $this->createExpenseSetup();
+        [$admin, , $charge1] = $this->createExpenseSetup();
 
         $response = $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/v1/charges/{$charge1->id}/validate");
@@ -109,7 +111,7 @@ class PaymentValidationTest extends TestCase
 
     public function test_admin_can_reject_charge(): void
     {
-        [$admin, , , , $charge2] = $this->createExpenseSetup();
+        [$admin, , , $charge2] = $this->createExpenseSetup();
 
         $response = $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/v1/charges/{$charge2->id}/reject");
@@ -126,7 +128,7 @@ class PaymentValidationTest extends TestCase
 
     public function test_expense_closes_when_all_charges_validated(): void
     {
-        [$admin, , $expense, $charge1, $charge2] = $this->createExpenseSetup();
+        [$admin, $expense, $charge1, $charge2] = $this->createExpenseSetup();
 
         $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/v1/charges/{$charge1->id}/validate");
@@ -142,7 +144,7 @@ class PaymentValidationTest extends TestCase
 
     public function test_expense_stays_open_until_all_charges_validated(): void
     {
-        [$admin, , $expense, $charge1] = $this->createExpenseSetup();
+        [$admin, $expense, $charge1] = $this->createExpenseSetup();
 
         $this->actingAs($admin, 'sanctum')
             ->patchJson("/api/v1/charges/{$charge1->id}/validate");
@@ -155,7 +157,7 @@ class PaymentValidationTest extends TestCase
 
     public function test_non_admin_cannot_validate(): void
     {
-        [, , , $charge1, , $member] = $this->createExpenseSetup();
+        [, , $charge1] = $this->createExpenseSetup();
 
         $regularUser = User::factory()->create();
 
@@ -167,11 +169,20 @@ class PaymentValidationTest extends TestCase
 
     public function test_cannot_validate_pending_charge(): void
     {
-        [$admin, , $expense] = $this->createExpenseSetup();
+        [$admin, $expense] = $this->createExpenseSetup();
+
+        $epExtra = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Pedro',
+            'phone' => '11000000003',
+            'phone_normalized' => '11000000003',
+            'amount' => 25.00,
+        ]);
 
         $pendingCharge = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => TeamMember::first()->id,
+            'expense_participant_id' => $epExtra->id,
+            'team_member_id' => null,
             'amount' => 25.00,
             'due_date' => $expense->due_date,
             'status' => 'pending',
@@ -187,7 +198,7 @@ class PaymentValidationTest extends TestCase
     {
         Storage::fake('local');
 
-        [$admin, , , , $charge2] = $this->createExpenseSetup();
+        [$admin, , , $charge2] = $this->createExpenseSetup();
 
         // Reject first
         $this->actingAs($admin, 'sanctum')

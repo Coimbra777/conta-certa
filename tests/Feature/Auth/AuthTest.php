@@ -134,9 +134,9 @@ class AuthTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_protected_teams_route_requires_authentication(): void
+    public function test_protected_expenses_route_requires_authentication(): void
     {
-        $response = $this->getJson('/api/v1/teams');
+        $response = $this->getJson('/api/v1/expenses');
 
         $response->assertStatus(401);
     }

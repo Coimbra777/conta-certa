@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\Charge;
+use App\Support\ChargeParticipantResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,9 +13,9 @@ class ChargeResource extends JsonResource
     {
         /** @var Charge $charge */
         $charge = $this->resource;
-        $charge->loadMissing(['expenseParticipant', 'teamMember']);
+        ChargeParticipantResolver::loadSnapshotRelations($charge);
 
-        $participantPayload = $this->resolveParticipantPayload($charge);
+        $participantPayload = ChargeParticipantResolver::participantPayloadForChargeJson($charge);
 
         return [
             'id' => $this->id,
@@ -27,27 +28,10 @@ class ChargeResource extends JsonResource
             'created_at' => $this->created_at,
             'user' => new UserResource($this->whenLoaded('user')),
             'participant' => $participantPayload,
-            'member' => $participantPayload,
             'proof_status' => $this->whenLoaded('paymentProofs', function () {
                 return $this->paymentProofs->sortByDesc('id')->first()?->status;
             }),
             'has_proof' => $this->whenLoaded('paymentProofs', fn () => $this->paymentProofs->isNotEmpty()),
         ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function resolveParticipantPayload(Charge $charge): ?array
-    {
-        if ($charge->relationLoaded('expenseParticipant') && $charge->expenseParticipant) {
-            return (new ExpenseParticipantResource($charge->expenseParticipant))->resolve(request());
-        }
-
-        if ($charge->relationLoaded('teamMember') && $charge->teamMember) {
-            return (new TeamMemberResource($charge->teamMember))->resolve(request());
-        }
-
-        return null;
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Charge;
 use App\Models\Expense;
 use App\Services\PaymentProofService;
 use App\Support\ChargeStatusTransition;
+use App\Support\ChargeParticipantResolver;
 use App\Support\PublicParticipantChargeResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,7 @@ class SubmitPaymentProofAction
             ChargeStatusTransition::assertTransition($charge->status, 'proof_sent');
             $charge->update(['status' => 'proof_sent']);
 
-            return $charge->fresh()->load('teamMember');
+            return $charge->fresh()->load(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS);
         });
     }
 

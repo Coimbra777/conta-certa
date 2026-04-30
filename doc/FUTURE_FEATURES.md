@@ -2,7 +2,7 @@
 
 Cada item: objetivo, valor, impacto no banco, API, telas, riscos de segurança, prioridade.
 
-**Nota de produto:** o módulo `teams` / `team_members` foi preservado para evoluções como **times de futebol**, **grupos recorrentes** ou **agenda de contatos**. O fluxo atual de divisão Pix modela participantes por cobrança em **`expense_participants`** (snapshot independente por `Expense`).
+**Nota de produto:** as tabelas **`teams` / `team_members`** permanecem no banco para evoluções futuras; **`doc/LEGACY.md`** descreve remoção planejada. Não há rotas REST `/teams` na API v1 atual. O fluxo de divisão Pix modela participantes por cobrança em **`expense_participants`** (snapshot independente por `Expense`).
 
 ---
 
@@ -13,7 +13,7 @@ Cada item: objetivo, valor, impacto no banco, API, telas, riscos de segurança, 
 | **Objetivo** | Enviar lembrete automático antes do vencimento ou para quem está `pending`. |
 | **Valor** | Reduz inadimplência e trabalho manual do organizador. |
 | **Banco** | Tabela `notifications` ou `reminder_jobs`; campos `last_reminder_at` em `charges` / `expenses`. |
-| **Endpoints** | `POST /teams/{team}/expenses/{expense}/reminders`, webhook de status (opcional). |
+| **Endpoints** | `POST /expenses/{expense}/reminders` (exemplo; desenhar sem dependência de team). |
 | **Telas** | Toggle “lembrar participantes”, histórico de envios. |
 | **Riscos** | Spam, opt-in LGPD, segredo de API WhatsApp no backend apenas. |
 | **Prioridade** | Média |

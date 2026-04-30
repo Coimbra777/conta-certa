@@ -2,7 +2,7 @@
 
 API **Laravel** (`/api/v1`) + SPA **React/Vite** em `frontend/`.
 
-**Domínio principal:** cobrança compartilhada via Pix — usuário autenticado gerencia `Expense` em `/api/v1/expenses` (sem dependência de equipe). Rotas `/api/v1/teams/*` permanecem como legado.
+**Domínio principal:** cobrança compartilhada via Pix — usuário autenticado gerencia `Expense` em `/api/v1/expenses` (sem dependência de equipe). Tabelas `teams` / `team_members` permanecem no banco para evolução futura; **não há** endpoints `/api/v1/teams/*` no runtime atual. Payload JSON usa **`participant` / `participants`** e **`amount_per_participant`**. Ver **`doc/LEGACY.md`** para o que ainda é só compatibilidade de schema.
 
 ## Requisitos
 

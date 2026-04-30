@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Expense;
 
-use App\Models\Team;
-use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,36 +10,15 @@ class ExpenseTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createTeamWithMembers(int $memberCount): array
+    private function createAdminUser(): User
     {
-        $admin = User::factory()->create();
-
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => $admin->name,
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-
-        for ($i = 1; $i < $memberCount; $i++) {
-            TeamMember::create([
-                'team_id' => $team->id,
-                'name' => "Member {$i}",
-                'phone' => '1100000000'.($i + 1),
-                'role' => 'member',
-            ]);
-        }
-
-        return [$team, $admin];
+        return User::factory()->create();
     }
 
     private function expensePayload(array $overrides = []): array
     {
         return array_merge([
-            'description' => 'Team dinner',
+            'description' => 'Shared expense',
             'total_amount' => 100.00,
             'due_date' => now()->addDays(3)->format('Y-m-d'),
             'pix_key' => '11999999999',
@@ -51,20 +28,25 @@ class ExpenseTest extends TestCase
     /**
      * @return list<array{name: string, phone: string, amount: float}>
      */
-    private function participantRowsSplitAmongTeam(Team $team, float $total): array
+    private function participantRowsForCount(User $admin, int $participantCount, float $total): array
     {
-        $members = TeamMember::where('team_id', $team->id)->orderBy('id')->get();
-        $n = $members->count();
-        $this->assertGreaterThan(0, $n);
+        $this->assertGreaterThan(0, $participantCount);
+        $names = [$admin->name];
+        $phones = ['11000000001'];
+        for ($i = 1; $i < $participantCount; $i++) {
+            $names[] = "Participant {$i}";
+            $phones[] = '1100000000'.($i + 1);
+        }
+
         $totalCents = (int) round($total * 100);
-        $base = intdiv($totalCents, $n);
-        $remainder = $totalCents % $n;
+        $base = intdiv($totalCents, $participantCount);
+        $remainder = $totalCents % $participantCount;
         $rows = [];
-        foreach ($members as $i => $m) {
+        for ($i = 0; $i < $participantCount; $i++) {
             $cents = $base + ($i < $remainder ? 1 : 0);
             $rows[] = [
-                'name' => $m->name,
-                'phone' => (string) $m->phone,
+                'name' => $names[$i],
+                'phone' => $phones[$i],
                 'amount' => round($cents / 100, 2),
             ];
         }
@@ -72,9 +54,9 @@ class ExpenseTest extends TestCase
         return $rows;
     }
 
-    private function postParticipantsSplitAmongTeam(Team $team, User $admin, int|string $expenseId, float $total): void
+    private function postParticipantsSplit(User $admin, int|string $expenseId, int $participantCount, float $total): void
     {
-        $participants = $this->participantRowsSplitAmongTeam($team, $total);
+        $participants = $this->participantRowsForCount($admin, $participantCount, $total);
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => $participants,
@@ -82,12 +64,12 @@ class ExpenseTest extends TestCase
             ->assertOk();
     }
 
-    public function test_expense_splits_correctly_among_members(): void
+    public function test_expense_splits_correctly_among_participants(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(3);
+        $admin = $this->createAdminUser();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
 
         $response->assertStatus(201)
             ->assertJsonStructure([
@@ -110,32 +92,32 @@ class ExpenseTest extends TestCase
 
     public function test_correct_number_of_charges_created(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(4);
+        $admin = $this->createAdminUser();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 200.00,
             ]));
         $response->assertStatus(201);
         $this->assertDatabaseCount('charges', 0);
 
         $expenseId = $response->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 200.00);
+        $this->postParticipantsSplit($admin, $expenseId, 4, 200.00);
 
         $this->assertDatabaseCount('charges', 4);
     }
 
     public function test_rounding_is_handled_correctly(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(3);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 10.00,
             ]));
         $create->assertStatus(201);
         $expenseId = $create->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 10.00);
+        $this->postParticipantsSplit($admin, $expenseId, 3, 10.00);
 
         $charges = \App\Models\Charge::orderBy('id')->get();
         $this->assertCount(3, $charges);
@@ -150,10 +132,10 @@ class ExpenseTest extends TestCase
 
     public function test_expense_has_public_hash(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
 
         $hash = $response->json('data.expense.public_hash');
         $this->assertNotNull($hash);
@@ -162,10 +144,10 @@ class ExpenseTest extends TestCase
 
     public function test_expense_has_pix_key(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'pix_key' => 'meu@email.com',
             ]));
 
@@ -173,35 +155,35 @@ class ExpenseTest extends TestCase
         $this->assertDatabaseHas('expenses', ['pix_key' => 'meu@email.com']);
     }
 
-    public function test_amount_per_member_is_calculated(): void
+    public function test_amount_per_participant_is_calculated(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(4);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 100.00,
             ]));
         $create->assertStatus(201);
-        $this->assertEquals('0.00', $create->json('data.expense.amount_per_member'));
+        $this->assertEquals('0.00', $create->json('data.expense.amount_per_participant'));
 
         $expenseId = $create->json('data.expense.id');
         $sync = $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
-                'participants' => $this->participantRowsSplitAmongTeam($team, 100.00),
+                'participants' => $this->participantRowsForCount($admin, 4, 100.00),
             ]);
         $sync->assertOk();
-        $this->assertEquals('25.00', $sync->json('data.expense.amount_per_member'));
+        $this->assertEquals('25.00', $sync->json('data.expense.amount_per_participant'));
     }
 
     public function test_charges_created_with_pending_status(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
         $create->assertStatus(201);
         $expenseId = $create->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 100.00);
+        $this->postParticipantsSplit($admin, $expenseId, 2, 100.00);
 
         $this->assertDatabaseCount('charges', 2);
         $charges = \App\Models\Charge::all();
@@ -210,28 +192,9 @@ class ExpenseTest extends TestCase
         }
     }
 
-    public function test_authenticated_member_can_create_own_expense(): void
+    public function test_authenticated_user_can_create_own_expense(): void
     {
-        $admin = User::factory()->create();
         $regularUser = User::factory()->create();
-
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => $admin->name,
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $regularUser->id,
-            'name' => $regularUser->name,
-            'phone' => '11000000002',
-            'email' => $regularUser->email,
-            'role' => 'member',
-        ]);
 
         $response = $this->actingAs($regularUser, 'sanctum')
             ->postJson('/api/v1/expenses', $this->expensePayload());
@@ -243,17 +206,17 @@ class ExpenseTest extends TestCase
         ]);
     }
 
-    public function test_show_expense_includes_charges_with_member(): void
+    public function test_show_expense_includes_charges_with_participant(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $createResponse = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 50.00,
             ]));
 
         $expenseId = $createResponse->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 50.00);
+        $this->postParticipantsSplit($admin, $expenseId, 2, 50.00);
 
         $response = $this->actingAs($admin, 'sanctum')
             ->getJson("/api/v1/expenses/{$expenseId}");
@@ -267,7 +230,7 @@ class ExpenseTest extends TestCase
                     'expense' => [
                         'id', 'description', 'total_amount', 'status',
                         'charges' => [
-                            '*' => ['id', 'amount', 'status', 'member'],
+                            '*' => ['id', 'amount', 'status', 'participant'],
                         ],
                     ],
                 ],
@@ -276,10 +239,10 @@ class ExpenseTest extends TestCase
 
     public function test_pix_key_is_required(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", [
+            ->postJson('/api/v1/expenses', [
                 'description' => 'Test',
                 'total_amount' => 50.00,
                 'due_date' => now()->addDays(3)->format('Y-m-d'),
@@ -291,14 +254,14 @@ class ExpenseTest extends TestCase
 
     public function test_admin_can_patch_expense(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
         $create->assertStatus(201);
 
         $expenseId = $create->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 100.00);
+        $this->postParticipantsSplit($admin, $expenseId, 2, 100.00);
 
         $newDue = now()->addDays(10)->format('Y-m-d');
 
@@ -323,10 +286,10 @@ class ExpenseTest extends TestCase
 
     public function test_admin_can_add_participants_when_all_charges_pending(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 90.00,
             ]));
 
@@ -336,7 +299,7 @@ class ExpenseTest extends TestCase
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
                     ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
                     ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 30],
                 ],
             ]);
@@ -349,34 +312,16 @@ class ExpenseTest extends TestCase
         $this->assertEquals(90.00, $total);
     }
 
-    public function test_non_admin_cannot_patch_expense(): void
+    public function test_non_creator_cannot_patch_expense(): void
     {
         $admin = User::factory()->create();
-        $member = User::factory()->create();
-
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => $admin->name,
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $member->id,
-            'name' => $member->name,
-            'phone' => '11000000002',
-            'email' => $member->email,
-            'role' => 'member',
-        ]);
+        $otherUser = User::factory()->create();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
         $expenseId = $create->json('data.expense.id');
 
-        $patch = $this->actingAs($member, 'sanctum')
+        $patch = $this->actingAs($otherUser, 'sanctum')
             ->patchJson("/api/v1/expenses/{$expenseId}", [
                 'description' => 'Hack',
                 'total_amount' => 50.00,
@@ -389,18 +334,18 @@ class ExpenseTest extends TestCase
 
     public function test_expenses_index_returns_charges_with_participants(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 40.00,
             ]));
         $create->assertStatus(201);
         $expenseId = $create->json('data.expense.id');
-        $this->postParticipantsSplitAmongTeam($team, $admin, $expenseId, 40.00);
+        $this->postParticipantsSplit($admin, $expenseId, 2, 40.00);
 
         $response = $this->actingAs($admin, 'sanctum')
-            ->getJson("/api/v1/expenses");
+            ->getJson('/api/v1/expenses');
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -416,7 +361,7 @@ class ExpenseTest extends TestCase
                                     'id',
                                     'amount',
                                     'status',
-                                    'member' => ['name', 'phone'],
+                                    'participant' => ['name', 'phone'],
                                 ],
                             ],
                         ],
@@ -427,12 +372,12 @@ class ExpenseTest extends TestCase
         $expense = $response->json('data.expenses.0');
         $this->assertArrayNotHasKey('manage_token', $expense);
         $this->assertCount(2, $expense['charges']);
-        $this->assertNotEmpty($expense['charges'][0]['member']['name']);
+        $this->assertNotEmpty($expense['charges'][0]['participant']['name']);
     }
 
     public function test_expenses_index_only_returns_own_created_expenses(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
         $stranger = User::factory()->create();
 
         $this->actingAs($admin, 'sanctum')
@@ -447,7 +392,7 @@ class ExpenseTest extends TestCase
 
     public function test_user_cannot_show_other_users_expense(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
         $stranger = User::factory()->create();
 
         $create = $this->actingAs($admin, 'sanctum')
@@ -461,10 +406,10 @@ class ExpenseTest extends TestCase
 
     public function test_admin_can_delete_expense_when_all_charges_pending(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 60.00,
             ]));
         $expenseId = $create->json('data.expense.id');
@@ -473,7 +418,7 @@ class ExpenseTest extends TestCase
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
                     ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -488,10 +433,10 @@ class ExpenseTest extends TestCase
 
     public function test_cannot_delete_expense_when_charge_not_pending(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 60.00,
             ]));
         $expenseId = $create->json('data.expense.id');
@@ -500,7 +445,7 @@ class ExpenseTest extends TestCase
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
                     ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
                 ],
             ])
             ->assertOk();
@@ -516,53 +461,35 @@ class ExpenseTest extends TestCase
         $this->assertDatabaseHas('expenses', ['id' => $expenseId]);
     }
 
-    public function test_member_cannot_delete_expense(): void
+    public function test_non_creator_cannot_delete_expense(): void
     {
         $admin = User::factory()->create();
-        $member = User::factory()->create();
-
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => $admin->name,
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $member->id,
-            'name' => $member->name,
-            'phone' => '11000000002',
-            'email' => $member->email,
-            'role' => 'member',
-        ]);
+        $otherUser = User::factory()->create();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload());
+            ->postJson('/api/v1/expenses', $this->expensePayload());
         $expenseId = $create->json('data.expense.id');
 
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
                     ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 50],
-                    ['name' => $member->name, 'phone' => '11000000002', 'amount' => 50],
+                    ['name' => $otherUser->name, 'phone' => '11000000002', 'amount' => 50],
                 ],
             ])
             ->assertOk();
 
-        $this->actingAs($member, 'sanctum')
+        $this->actingAs($otherUser, 'sanctum')
             ->deleteJson("/api/v1/expenses/{$expenseId}")
             ->assertStatus(403);
     }
 
     public function test_add_participants_rejects_sum_mismatch(): void
     {
-        [$team, $admin] = $this->createTeamWithMembers(2);
+        $admin = $this->createAdminUser();
 
         $create = $this->actingAs($admin, 'sanctum')
-            ->postJson("/api/v1/expenses", $this->expensePayload([
+            ->postJson('/api/v1/expenses', $this->expensePayload([
                 'total_amount' => 90.00,
             ]));
         $expenseId = $create->json('data.expense.id');
@@ -571,7 +498,7 @@ class ExpenseTest extends TestCase
             ->postJson("/api/v1/expenses/{$expenseId}/participants", [
                 'participants' => [
                     ['name' => $admin->name, 'phone' => '11000000001', 'amount' => 30],
-                    ['name' => 'Member 1', 'phone' => '11000000002', 'amount' => 30],
+                    ['name' => 'Participant 1', 'phone' => '11000000002', 'amount' => 30],
                     ['name' => 'Novo Membro', 'phone' => '11888887777', 'amount' => 20],
                 ],
             ])

@@ -30,7 +30,7 @@ class RejectChargeAction
             $latestProof->update(['status' => 'rejected']);
         }
 
-        return $charge->fresh()->load(['teamMember', 'expense']);
+        return $charge->fresh()->load(['expenseParticipant', 'expense']);
     }
 
     /**

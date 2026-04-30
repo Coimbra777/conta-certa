@@ -5,39 +5,28 @@ namespace App\Services;
 use App\Helpers\ApiWhatsappHelper;
 use App\Models\Charge;
 use App\Models\Expense;
-use App\Models\TeamMember;
+use App\Support\ChargeParticipantResolver;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
 {
     public function __construct(private ApiWhatsappHelper $whatsappHelper) {}
 
-    public function sendChargeNotification(TeamMember $member, Charge $charge, ?Expense $expense = null): void
-    {
-        $this->deliverChargeWhatsApp(
-            $member->name,
-            $member->phone,
-            $charge,
-            $expense,
-            ['team_member_id' => $member->id],
-        );
-    }
-
     /**
-     * Notifica destinatário usando snapshot em {@see Charge::expenseParticipant} ou legado {@see Charge::teamMember}.
+     * Destinatário derivado de {@see ChargeParticipantResolver} (snapshot ou legado team_members).
      */
     public function notifyChargeRecipient(Charge $charge, ?Expense $expense = null): void
     {
-        $charge->loadMissing(['expenseParticipant', 'teamMember']);
+        ChargeParticipantResolver::loadSnapshotRelations($charge);
 
         $participant = $charge->expenseParticipant;
-        $member = $charge->teamMember;
+        $legacy = $charge->teamMember;
 
-        $name = $participant?->name ?? $member?->name;
-        $phone = $participant?->phone ?? $member?->phone;
+        $name = $participant?->name ?? $legacy?->name;
+        $phone = $participant?->phone ?? $legacy?->phone;
         $log = $participant !== null
             ? ['expense_participant_id' => $participant->id]
-            : ['team_member_id' => $member?->id];
+            : ['team_member_id' => $legacy?->id];
 
         $this->deliverChargeWhatsApp($name, $phone, $charge, $expense, $log);
     }
@@ -63,7 +52,7 @@ class NotificationService
         }
 
         if ($phone === null || trim((string) $phone) === '') {
-            Log::info('No notification channel available for member (missing phone)', [
+            Log::info('No notification channel available for participant (missing phone)', [
                 ...$logContext,
                 'charge_id' => $charge->id,
             ]);

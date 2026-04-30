@@ -15,6 +15,7 @@ use App\Http\Requests\Api\V1\UpdateExpenseRequest;
 use App\Http\Resources\ExpenseResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Expense;
+use App\Support\ChargeParticipantResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,11 +28,7 @@ class ExpenseController extends Controller
 
         $expenses = Expense::query()
             ->where('created_by', $user->id)
-            ->with([
-                'charges.expenseParticipant',
-                'charges.teamMember',
-                'charges.paymentProofs',
-            ])
+            ->with(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs())
             ->latest()
             ->get();
 
@@ -54,11 +51,7 @@ class ExpenseController extends Controller
 
     public function show(ShowExpenseRequest $request, Expense $expense): JsonResponse
     {
-        $expense->load([
-            'charges.expenseParticipant',
-            'charges.teamMember',
-            'charges.paymentProofs',
-        ]);
+        $expense->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs());
 
         return ApiResponse::success([
             'expense' => (new ExpenseResource($expense))->resolve(),

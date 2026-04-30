@@ -54,24 +54,17 @@ Body: `email`, `password`.
 
 ---
 
-## Equipes (Bearer) — legado
+## Equipes — fora do runtime da API v1
 
-Rotas mantidas para compatibilidade / evolução futura; **o fluxo principal de cobrança não depende mais de equipe**.
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/teams` | Lista equipes do usuário |
-| POST | `/teams` | Cria equipe |
-| GET | `/teams/{team}` | Detalhe |
-| GET | `/teams/{team}/dashboard` | Dashboard |
-| POST | `/teams/{team}/members` | Adiciona membro |
-| DELETE | `/teams/{team}/members/{member}` | Remove membro |
+As tabelas **`teams`** / **`team_members`** continuam no schema (migrations antigas + evolução futura possível). **Nenhuma rota `/api/v1/teams/*` está registrada** nesta versão — o produto usa apenas `Expense` + `ExpenseParticipant` + `Charge` para o fluxo principal.
 
 ---
 
 ## Cobranças — usuário autenticado (Bearer)
 
 Dono da cobrança: `expenses.created_by` = usuário logado. Participantes: `expense_participants` + `charges`.
+
+Objeto `expense` inclui `amount_per_participant` (valor médio por cobrança quando aplicável). Cada item em `charges[]` inclui `participant` (snapshot; sem campo `member`).
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
@@ -109,7 +102,7 @@ Cria despesa “anônima” com participantes; retorno em envelope com `expense`
 
 ### `GET /api/v1/public/expenses/{hash}`
 
-Query opcional: `manage={manage_token}` — com token correto, resposta inclui `members` com `charge_id` e telefones; sem token, `participants` só com nome + status agregado.
+Query opcional: `manage={manage_token}` — com token correto, `participants` lista cada cobrança (`charge_id`, `charge_status`, `amount`, nome, telefone). Sem token, `participants` traz apenas nome + status (visão mínima). Campo monetário médio: `amount_per_participant` (coluna interna `amount_per_member`).
 
 **404** — hash inexistente (envelope `NOT_FOUND`).
 

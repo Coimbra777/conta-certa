@@ -3,7 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Charge;
-use App\Models\TeamMember;
+use App\Models\Expense;
+use App\Models\ExpenseParticipant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,13 +18,30 @@ class ChargeFactory extends Factory
     {
         return [
             'user_id' => null,
-            'team_member_id' => TeamMember::factory(),
+            'team_member_id' => null,
+            'expense_participant_id' => null,
+            'expense_id' => Expense::factory(),
             'description' => fake()->sentence(),
             'amount' => fake()->randomFloat(2, 5, 1000),
             'due_date' => fake()->dateTimeBetween('now', '+30 days')->format('Y-m-d'),
             'status' => 'pending',
             'paid_at' => null,
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Charge $charge): void {
+            if ($charge->expense_participant_id !== null) {
+                return;
+            }
+
+            $participant = ExpenseParticipant::factory()->create([
+                'expense_id' => $charge->expense_id,
+            ]);
+
+            $charge->update(['expense_participant_id' => $participant->id]);
+        });
     }
 
     public function proofSent(): static

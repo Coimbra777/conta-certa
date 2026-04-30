@@ -15,6 +15,7 @@ use App\Http\Requests\Api\V1\StorePublicExpenseRequest;
 use App\Http\Requests\Api\V1\SubmitPublicProofRequest;
 use App\Http\Requests\Api\V1\UpdatePublicExpenseRequest;
 use App\Http\Requests\Api\V1\ValidateParticipantPublicRequest;
+use App\Http\Resources\ChargeResource;
 use App\Http\Resources\CreatedPublicExpenseResource;
 use App\Http\Resources\PublicExpenseResource;
 use App\Http\Responses\ApiResponse;
@@ -23,6 +24,7 @@ use App\Models\Expense;
 use App\Services\ExpenseService;
 use App\Services\PublicExpenseCreatorService;
 use App\Support\PublicParticipantChargeResolver;
+use App\Support\ChargeParticipantResolver;
 use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,7 +60,7 @@ class PublicExpenseController extends Controller
     public function show(Request $request, string $hash): JsonResponse
     {
         $expense = Expense::where('public_hash', $hash)
-            ->with(['charges.expenseParticipant', 'charges.teamMember', 'charges.paymentProofs'])
+            ->with(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs())
             ->firstOrFail();
 
         return ApiResponse::success([
@@ -98,7 +100,7 @@ class PublicExpenseController extends Controller
         }
 
         $expense->update(['status' => 'closed']);
-        $expense->load(['charges.expenseParticipant', 'charges.teamMember', 'charges.paymentProofs']);
+        $expense->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs());
 
         return ApiResponse::success([
             'expense' => (new PublicExpenseResource($expense))->resolve(),
@@ -126,14 +128,14 @@ class PublicExpenseController extends Controller
         }
 
         $chargeCount = $expense->charges()->count();
-        $amountPerMember = $chargeCount > 0
+        $amountPerParticipant = $chargeCount > 0
             ? floor($totalAmount / $chargeCount * 100) / 100
             : $totalAmount;
 
         $payload = [
             'description' => $data['description'],
             'total_amount' => $totalAmount,
-            'amount_per_member' => $amountPerMember,
+            'amount_per_member' => $amountPerParticipant,
             'due_date' => $data['due_date'],
             'pix_key' => $data['pix_key'],
         ];
@@ -155,7 +157,7 @@ class PublicExpenseController extends Controller
             }
         });
 
-        $expense->refresh()->load(['charges.expenseParticipant', 'charges.teamMember', 'charges.paymentProofs']);
+        $expense->refresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs());
 
         return ApiResponse::success([
             'expense' => (new PublicExpenseResource($expense))->resolve(),
@@ -176,7 +178,7 @@ class PublicExpenseController extends Controller
 
         $expense = $action->execute($expense, $participants);
 
-        $expense->refresh()->load(['charges.expenseParticipant', 'charges.teamMember', 'charges.paymentProofs']);
+        $expense->refresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshotsAndProofs());
 
         return ApiResponse::success([
             'expense' => (new PublicExpenseResource($expense))->resolve(),
@@ -245,17 +247,8 @@ class PublicExpenseController extends Controller
 
         $charge = $validateChargeAction->execute($charge, ChargeActionAudience::PUBLIC_MANAGE);
 
-        $charge->load('teamMember');
-
         return ApiResponse::success([
-            'charge' => [
-                'id' => $charge->id,
-                'status' => $charge->status,
-                'member' => [
-                    'id' => $charge->teamMember?->id,
-                    'name' => $charge->teamMember?->name,
-                ],
-            ],
+            'charge' => (new ChargeResource($charge->load(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS)))->resolve(),
         ], 'Pagamento validado.');
     }
 

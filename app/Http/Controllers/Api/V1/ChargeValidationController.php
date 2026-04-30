@@ -11,6 +11,7 @@ use App\Http\Requests\Api\V1\RejectChargeRequest;
 use App\Http\Resources\ChargeResource;
 use App\Http\Responses\ApiResponse;
 use App\Models\Charge;
+use App\Support\ChargeParticipantResolver;
 use App\Support\ExpenseAuthorizer;
 use App\Support\SafeDownloadFilename;
 use Illuminate\Http\JsonResponse;
@@ -22,33 +23,33 @@ class ChargeValidationController extends Controller
 {
     public function validateCharge(Charge $charge, ValidateChargeAction $validateChargeAction): JsonResponse
     {
-        $this->authorizeAdmin($charge);
+        $this->authorizeExpenseOwner($charge);
 
-        $charge = $validateChargeAction->execute($charge, ChargeActionAudience::TEAM_ADMIN);
+        $charge = $validateChargeAction->execute($charge, ChargeActionAudience::EXPENSE_OWNER);
 
         return ApiResponse::success([
-            'charge' => (new ChargeResource($charge->load(['expenseParticipant', 'teamMember'])))->resolve(),
+            'charge' => (new ChargeResource($charge->load(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS)))->resolve(),
         ], 'Pagamento validado.');
     }
 
     public function reject(RejectChargeRequest $request, Charge $charge, RejectChargeAction $rejectChargeAction): JsonResponse
     {
-        $this->authorizeAdmin($charge);
+        $this->authorizeExpenseOwner($charge);
 
         $charge = $rejectChargeAction->execute(
             $charge,
             $request->input('reason'),
-            ChargeActionAudience::TEAM_ADMIN,
+            ChargeActionAudience::EXPENSE_OWNER,
         );
 
         return ApiResponse::success([
-            'charge' => (new ChargeResource($charge->load(['expenseParticipant', 'teamMember'])))->resolve(),
+            'charge' => (new ChargeResource($charge->load(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS)))->resolve(),
         ], 'Comprovante rejeitado.');
     }
 
     public function downloadProof(Charge $charge): StreamedResponse|JsonResponse
     {
-        $this->authorizeAdmin($charge);
+        $this->authorizeExpenseOwner($charge);
 
         $proof = $charge->latestProof();
         if (! $proof) {
@@ -63,7 +64,7 @@ class ChargeValidationController extends Controller
     /**
      * @throws HttpApiException
      */
-    private function authorizeAdmin(Charge $charge): void
+    private function authorizeExpenseOwner(Charge $charge): void
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();

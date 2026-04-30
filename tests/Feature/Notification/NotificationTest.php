@@ -4,7 +4,6 @@ namespace Tests\Feature\Notification;
 
 use App\Helpers\ApiWhatsappHelper;
 use App\Models\Charge;
-use App\Models\TeamMember;
 use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -32,13 +31,10 @@ class NotificationTest extends TestCase
 
         $service = new NotificationService($whatsappMock);
 
-        $member = TeamMember::factory()->create(['phone' => '11999999999']);
-        $charge = Charge::factory()->create([
-            'team_member_id' => $member->id,
-            'user_id' => null,
-        ]);
+        $charge = Charge::factory()->create();
+        $charge->expenseParticipant->update(['phone' => '11999999999']);
 
-        $service->sendChargeNotification($member, $charge);
+        $service->notifyChargeRecipient($charge->fresh(['expenseParticipant', 'teamMember']));
     }
 
     public function test_notification_logs_when_phone_missing(): void
@@ -49,19 +45,14 @@ class NotificationTest extends TestCase
 
         $service = new NotificationService($whatsappMock);
 
-        $member = TeamMember::factory()->create([
-            'phone' => '',
-        ]);
-        $charge = Charge::factory()->create([
-            'team_member_id' => $member->id,
-            'user_id' => null,
-        ]);
+        $charge = Charge::factory()->create();
+        $charge->expenseParticipant->update(['phone' => '']);
 
         Log::shouldReceive('info')
             ->once()
             ->withArgs(fn ($msg) => str_contains($msg, 'missing phone'));
 
-        $service->sendChargeNotification($member, $charge);
+        $service->notifyChargeRecipient($charge->fresh(['expenseParticipant', 'teamMember']));
     }
 
     public function test_notification_logs_when_whatsapp_fails(): void
@@ -73,17 +64,14 @@ class NotificationTest extends TestCase
 
         $service = new NotificationService($whatsappMock);
 
-        $member = TeamMember::factory()->create(['phone' => '11999999999']);
-        $charge = Charge::factory()->create([
-            'team_member_id' => $member->id,
-            'user_id' => null,
-        ]);
+        $charge = Charge::factory()->create();
+        $charge->expenseParticipant->update(['phone' => '11999999999']);
 
         Log::shouldReceive('info')
             ->once()
             ->withArgs(fn ($msg) => str_contains($msg, 'not delivered'));
 
-        $service->sendChargeNotification($member, $charge);
+        $service->notifyChargeRecipient($charge->fresh(['expenseParticipant', 'teamMember']));
     }
 
     public function test_whatsapp_helper_sends_real_http_post(): void

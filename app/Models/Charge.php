@@ -58,6 +58,9 @@ class Charge extends Model
         return $this->belongsTo(Expense::class);
     }
 
+    /**
+     * Legado: dados antigos em {@see Charge::$team_member_id} antes do snapshot em expense_participants.
+     */
     public function teamMember(): BelongsTo
     {
         return $this->belongsTo(TeamMember::class);

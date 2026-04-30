@@ -5,8 +5,6 @@ use App\Http\Controllers\Api\V1\ChargeValidationController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\ExpenseParticipantController;
 use App\Http\Controllers\Api\V1\PublicExpenseController;
-use App\Http\Controllers\Api\V1\TeamController;
-use App\Http\Controllers\Api\V1\TeamMemberController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/public/expenses', [PublicExpenseController::class, 'store'])
@@ -59,17 +57,6 @@ Route::prefix('v1')->group(function () {
         Route::patch('/charges/{charge}/validate', [ChargeValidationController::class, 'validateCharge']);
         Route::patch('/charges/{charge}/reject', [ChargeValidationController::class, 'reject']);
         Route::get('/charges/{charge}/proof', [ChargeValidationController::class, 'downloadProof']);
-
-        /** @deprecated Legado: times / membros (fora do fluxo principal de cobrança). */
-        Route::prefix('teams')->group(function () {
-            Route::post('/', [TeamController::class, 'store']);
-            Route::get('/', [TeamController::class, 'index']);
-            Route::get('/{team}', [TeamController::class, 'show']);
-            Route::get('/{team}/dashboard', [TeamController::class, 'dashboard']);
-
-            Route::post('/{team}/members', [TeamMemberController::class, 'store']);
-            Route::delete('/{team}/members/{member}', [TeamMemberController::class, 'destroy']);
-        });
     });
 
 });

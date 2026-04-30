@@ -4,8 +4,7 @@ namespace Tests\Feature\PublicExpense;
 
 use App\Models\Charge;
 use App\Models\Expense;
-use App\Models\Team;
-use App\Models\TeamMember;
+use App\Models\ExpenseParticipant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -20,26 +19,9 @@ class PublicExpenseTest extends TestCase
     private function createExpenseWithCharges(): array
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-
-        $member1 = TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => 'Joao Admin',
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
-
-        $member2 = TeamMember::create([
-            'team_id' => $team->id,
-            'name' => 'Maria Silva',
-            'phone' => '11000000002',
-            'role' => 'member',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'owner_name' => 'Dono Teste',
             'owner_phone' => '11988887777',
@@ -56,9 +38,26 @@ class PublicExpenseTest extends TestCase
             'manage_token' => 'manage-token-secret',
         ])->save();
 
+        $ep1 = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Joao Admin',
+            'phone' => '11000000001',
+            'phone_normalized' => '11000000001',
+            'amount' => 50.00,
+        ]);
+
+        $ep2 = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Maria Silva',
+            'phone' => '11000000002',
+            'phone_normalized' => '11000000002',
+            'amount' => 50.00,
+        ]);
+
         $charge1 = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member1->id,
+            'expense_participant_id' => $ep1->id,
+            'team_member_id' => null,
             'amount' => 50.00,
             'due_date' => $expense->due_date,
             'status' => 'pending',
@@ -66,13 +65,14 @@ class PublicExpenseTest extends TestCase
 
         $charge2 = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member2->id,
+            'expense_participant_id' => $ep2->id,
+            'team_member_id' => null,
             'amount' => 50.00,
             'due_date' => $expense->due_date,
             'status' => 'pending',
         ]);
 
-        return [$expense, $charge1, $charge2, $admin, $team];
+        return [$expense, $charge1, $charge2, $admin];
     }
 
     /**
@@ -81,17 +81,9 @@ class PublicExpenseTest extends TestCase
     private function createPublicExpenseWithOneParticipant500(): array
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-
-        $member = TeamMember::create([
-            'team_id' => $team->id,
-            'name' => 'Unico Participante',
-            'phone' => '11000000001',
-            'role' => 'member',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'owner_name' => 'Dono Teste',
             'owner_phone' => '11988887777',
@@ -108,9 +100,18 @@ class PublicExpenseTest extends TestCase
             'manage_token' => 'manage-token-secret',
         ])->save();
 
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Unico Participante',
+            'phone' => '11000000001',
+            'phone_normalized' => '11000000001',
+            'amount' => 500.00,
+        ]);
+
         $charge = Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member->id,
+            'expense_participant_id' => $ep->id,
+            'team_member_id' => null,
             'amount' => 500.00,
             'due_date' => $expense->due_date,
             'status' => 'pending',
@@ -134,13 +135,13 @@ class PublicExpenseTest extends TestCase
                 'success',
                 'message',
                 'data' => [
-                    'expense' => ['id', 'description', 'total_amount', 'amount', 'amount_per_member', 'pix_key', 'pix_qr_code', 'participants', 'can_manage'],
+                    'expense' => ['id', 'description', 'total_amount', 'amount', 'amount_per_participant', 'pix_key', 'pix_qr_code', 'participants', 'can_manage'],
                 ],
                 'meta',
             ]);
     }
 
-    public function test_public_expense_with_manage_returns_members_and_can_manage(): void
+    public function test_public_expense_with_manage_returns_participants_and_can_manage(): void
     {
         $this->createExpenseWithCharges();
 
@@ -150,18 +151,18 @@ class PublicExpenseTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.expense.can_manage', true)
             ->assertJsonPath('data.expense.owner_phone', '11988887777')
-            ->assertJsonCount(2, 'data.expense.members')
+            ->assertJsonCount(2, 'data.expense.participants')
             ->assertJsonStructure([
                 'success',
                 'message',
                 'data' => [
-                    'expense' => ['members', 'owner_name', 'amount_per_member'],
+                    'expense' => ['participants', 'owner_name', 'amount_per_participant'],
                 ],
                 'meta',
             ]);
     }
 
-    public function test_public_expense_with_manage_header_returns_members_and_can_manage(): void
+    public function test_public_expense_with_manage_header_returns_participants_and_can_manage(): void
     {
         $this->createExpenseWithCharges();
 
@@ -171,7 +172,7 @@ class PublicExpenseTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.expense.can_manage', true)
-            ->assertJsonCount(2, 'data.expense.members');
+            ->assertJsonCount(2, 'data.expense.participants');
     }
 
     public function test_manage_token_header_takes_precedence_over_query_string(): void
@@ -209,7 +210,7 @@ class PublicExpenseTest extends TestCase
             ->assertJsonPath('data.status', 'proof_sent');
 
         $charge = Charge::query()
-            ->whereHas('teamMember', fn ($q) => $q->where('phone', '11000000002'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
             ->first();
         $this->assertNotNull($charge);
         $this->assertDatabaseHas('payment_proofs', [
@@ -324,13 +325,13 @@ class PublicExpenseTest extends TestCase
             ->assertJsonPath('data.status', 'proof_sent')
             ->assertJsonPath('message', 'Comprovante enviado. Aguardando aprovação do responsável.');
 
-        $this->assertDatabaseHas('team_members', [
+        $this->assertDatabaseHas('expense_participants', [
             'name' => 'Maria Silva',
             'phone' => '11000000002',
         ]);
 
         $charge = Charge::query()->where('expense_id', Expense::where('public_hash', 'test-hash-123')->value('id'))
-            ->whereHas('teamMember', fn ($q) => $q->where('phone', '11000000002'))
+            ->whereHas('expenseParticipant', fn ($q) => $q->where('phone', '11000000002'))
             ->first();
         $this->assertNotNull($charge);
         $this->assertSame('proof_sent', $charge->status);
@@ -413,7 +414,7 @@ class PublicExpenseTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonPath('message', 'Participante não encontrado nesta despesa.');
 
-        $this->assertDatabaseHas('team_members', [
+        $this->assertDatabaseHas('expense_participants', [
             'phone' => '11000000002',
             'name' => 'Maria Silva',
         ]);

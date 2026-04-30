@@ -72,6 +72,9 @@ class Expense extends Model
         return $query->where('public_hash', $hash);
     }
 
+    /**
+     * Legado: despesa pode referenciar uma equipe (`team_id`); fluxo principal mantém null.
+     */
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);

@@ -37,6 +37,7 @@
 - **401** em rotas autenticadas: limpa token e redireciona para `/login`.
 - **403**: mensagem de acesso negado.
 - **422**: erros de validação mapeados para `ApiClientError`.
+- Domínio na UI: lista agregada **`participants`**; cada charge na API traz **`participant`**. Respostas públicas/autenticadas usam **`amount_per_participant`**; o client aceita `amount_per_member` só como fallback para payload antigo em cache.
 
 ## Build
 

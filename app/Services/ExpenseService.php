@@ -7,6 +7,7 @@ use App\Models\Charge;
 use App\Models\Expense;
 use App\Models\ExpenseParticipant;
 use App\Models\User;
+use App\Support\ChargeParticipantResolver;
 use App\Support\ChargeStatusTransition;
 use App\Support\PhoneNormalizer;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class ExpenseService
                 'status' => 'open',
             ]);
 
-            return $expense->fresh()->load(['charges.expenseParticipant', 'charges.teamMember']);
+            return $expense->fresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
         });
     }
 
@@ -74,7 +75,7 @@ class ExpenseService
                 ]);
             }
 
-            return $expense->fresh()->load(['charges.expenseParticipant', 'charges.teamMember']);
+            return $expense->fresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
         });
     }
 
@@ -132,20 +133,20 @@ class ExpenseService
                 $newChargeIds[] = $charge->id;
             }
 
-            $fresh = $expense->fresh()->load(['charges.expenseParticipant', 'charges.teamMember']);
+            $fresh = $expense->fresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
             $this->applyExplicitParticipantAmounts($fresh, $participants);
 
             return [
-                'expense' => $fresh->load(['charges.expenseParticipant', 'charges.teamMember']),
+                'expense' => $fresh->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots()),
                 'newChargeIds' => $newChargeIds,
             ];
         });
 
         foreach ($result['newChargeIds'] as $chargeId) {
             $charge = Charge::query()
-                ->with(['expenseParticipant', 'teamMember'])
+                ->with(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS)
                 ->find($chargeId);
-            if ($charge && ($charge->expenseParticipant || $charge->teamMember)) {
+            if ($charge && ChargeParticipantResolver::participantPayloadForChargeJson($charge) !== null) {
                 try {
                     $this->notificationService->notifyChargeRecipient(
                         $charge->fresh(),
@@ -170,7 +171,7 @@ class ExpenseService
      */
     public function applyExplicitParticipantAmounts(Expense $expense, array $participants): void
     {
-        $charges = $expense->charges()->with(['expenseParticipant', 'teamMember'])->orderBy('id')->get();
+        $charges = $expense->charges()->with(ChargeParticipantResolver::CHARGE_SNAPSHOT_RELATIONS)->orderBy('id')->get();
         ChargeStatusTransition::assertAllPendingForRedistribution($charges);
 
         $amountByPhone = [];
@@ -197,9 +198,8 @@ class ExpenseService
         }
 
         foreach ($charges as $charge) {
-            $participantPhone = PhoneNormalizer::digits(
-                (string) ($charge->expenseParticipant?->phone ?? $charge->teamMember?->phone ?? '')
-            );
+            $row = ChargeParticipantResolver::identitySnapshot($charge);
+            $participantPhone = PhoneNormalizer::digits((string) ($row['phone'] ?? ''));
             if ($participantPhone === '' || ! isset($amountByPhone[$participantPhone])) {
                 throw new \DomainException('Defina o valor para cada participante da cobrança.');
             }
@@ -343,7 +343,7 @@ class ExpenseService
                 $expense->update(['amount_per_member' => $avg]);
             }
 
-            return $expense->fresh()->load(['charges.expenseParticipant', 'charges.teamMember']);
+            return $expense->fresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
         });
     }
 
@@ -374,6 +374,6 @@ class ExpenseService
         $reloaded = Expense::query()->findOrFail($expense->id);
         $this->redistributeChargeAmounts($reloaded);
 
-        return $reloaded->fresh()->load(['charges.expenseParticipant', 'charges.teamMember']);
+        return $reloaded->fresh()->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
     }
 }

@@ -7,7 +7,8 @@ namespace App\Actions\Charge;
  */
 final class ChargeActionAudience
 {
-    public const TEAM_ADMIN = 'team_admin';
+    /** Dono da cobrança autenticado (espelha antigo fluxo “admin da equipe”). */
+    public const EXPENSE_OWNER = 'expense_owner';
 
     public const PUBLIC_MANAGE = 'public_manage';
 }

@@ -4,8 +4,7 @@ namespace Tests\Feature\Security;
 
 use App\Models\Charge;
 use App\Models\Expense;
-use App\Models\Team;
-use App\Models\TeamMember;
+use App\Models\ExpenseParticipant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -19,19 +18,9 @@ class SecurityHardeningTest extends TestCase
     public function test_public_close_forbidden_with_invalid_manage_token(): void
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-
-        $member = TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => 'Admin',
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'description' => 'Teste segurança',
             'total_amount' => 100.00,
@@ -45,10 +34,19 @@ class SecurityHardeningTest extends TestCase
             'manage_token' => 'good-manage-token',
         ])->save();
 
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Admin',
+            'phone' => '11000000001',
+            'phone_normalized' => '11000000001',
+            'amount' => 100.00,
+        ]);
+
         Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member->id,
-            'user_id' => $member->user_id,
+            'expense_participant_id' => $ep->id,
+            'team_member_id' => null,
+            'user_id' => $admin->id,
             'description' => $expense->description,
             'amount' => 100.00,
             'due_date' => $expense->due_date,
@@ -82,18 +80,9 @@ class SecurityHardeningTest extends TestCase
     {
         Storage::fake('local');
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-
-        $member = TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => null,
-            'name' => 'Participante',
-            'phone' => '11000000002',
-            'role' => 'member',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'description' => 'Rateio',
             'total_amount' => 100.00,
@@ -107,9 +96,18 @@ class SecurityHardeningTest extends TestCase
             'manage_token' => 'manage-x',
         ])->save();
 
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Participante',
+            'phone' => '11000000002',
+            'phone_normalized' => '11000000002',
+            'amount' => 100.00,
+        ]);
+
         Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member->id,
+            'expense_participant_id' => $ep->id,
+            'team_member_id' => null,
             'user_id' => null,
             'description' => $expense->description,
             'amount' => 100.00,
@@ -120,8 +118,8 @@ class SecurityHardeningTest extends TestCase
         $file = UploadedFile::fake()->create('malware.exe', 50);
 
         $this->post('/api/v1/public/expenses/sec-hash-proof/submit-proof', [
-            'name' => $member->name,
-            'phone' => $member->phone,
+            'name' => $ep->name,
+            'phone' => $ep->phone,
             'proof' => $file,
         ])->assertStatus(422);
     }
@@ -129,18 +127,9 @@ class SecurityHardeningTest extends TestCase
     public function test_api_responses_include_security_headers(): void
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => 'Admin',
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'description' => 'X',
             'total_amount' => 10.00,

@@ -132,14 +132,13 @@ function guessPixKeyType(pixKey: string): PixKeyType {
     return "random";
 }
 
-/** Prefer snapshot `participant`; fallback legado `member`. */
+/** Campos do participante na cobrança (`participant` na API). */
 function chargeParticipantFields(c: Record<string, unknown>): {
     name: string;
     phone: string;
 } {
     const participant = c.participant as Record<string, unknown> | undefined;
-    const member = c.member as Record<string, unknown> | undefined;
-    const src = participant ?? member ?? {};
+    const src = participant ?? {};
     return {
         name: String(src.name ?? ""),
         phone: String(src.phone ?? ""),
@@ -181,30 +180,22 @@ function mapExpenseFromApi(e: Record<string, unknown>): Expense {
 }
 
 function mapPublicExpenseFromApi(e: Record<string, unknown>): Expense {
-    const members = e.members as Record<string, unknown>[] | undefined;
-    const parts =
+    const rows =
         (e.participants as Record<string, unknown>[] | undefined) ?? [];
-    const per = Number(e.amount_per_member ?? 0);
+    const per = Number(
+        e.amount_per_participant ?? e.amount_per_member ?? 0,
+    );
 
-    const participants =
-        members && members.length > 0
-            ? members.map((m) => ({
-                  id: String(m.charge_id ?? m.id ?? ""),
-                  name: String(m.name ?? ""),
-                  phone: String(m.phone ?? ""),
-                  amount: Number(m.amount ?? per),
-                  status: (m.charge_status ?? m.status) as ApiStatus,
-                  rejectionReason: m.rejection_reason
-                      ? String(m.rejection_reason)
-                      : undefined,
-              }))
-            : parts.map((p, i) => ({
-                  id: `pub-${i}-${String(p.name ?? "")}`,
-                  name: String(p.name ?? ""),
-                  phone: "",
-                  amount: per,
-                  status: p.status as ApiStatus,
-              }));
+    const participants = rows.map((m, i) => ({
+        id: String(m.charge_id ?? m.id ?? `pub-${i}-${String(m.name ?? "")}`),
+        name: String(m.name ?? ""),
+        phone: String(m.phone ?? ""),
+        amount: Number(m.amount ?? per),
+        status: (m.charge_status ?? m.status) as ApiStatus,
+        rejectionReason: m.rejection_reason
+            ? String(m.rejection_reason)
+            : undefined,
+    }));
 
     return {
         id: String(e.id ?? ""),

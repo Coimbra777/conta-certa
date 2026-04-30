@@ -4,8 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Charge;
 use App\Models\Expense;
-use App\Models\Team;
-use App\Models\TeamMember;
+use App\Models\ExpenseParticipant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,18 +16,9 @@ class ApiEnvelopeResponseTest extends TestCase
     public function test_public_expense_get_uses_success_envelope(): void
     {
         $admin = User::factory()->create();
-        $team = Team::factory()->create(['owner_id' => $admin->id]);
-        $member = TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $admin->id,
-            'name' => 'Admin',
-            'phone' => '11000000001',
-            'email' => $admin->email,
-            'role' => 'admin',
-        ]);
 
         $expense = Expense::create([
-            'team_id' => $team->id,
+            'team_id' => null,
             'created_by' => $admin->id,
             'description' => 'Test',
             'total_amount' => 10.00,
@@ -42,9 +32,18 @@ class ApiEnvelopeResponseTest extends TestCase
             'manage_token' => 'token-env-1',
         ])->save();
 
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Admin',
+            'phone' => '11000000001',
+            'phone_normalized' => '11000000001',
+            'amount' => 10.00,
+        ]);
+
         Charge::create([
             'expense_id' => $expense->id,
-            'team_member_id' => $member->id,
+            'expense_participant_id' => $ep->id,
+            'team_member_id' => null,
             'amount' => 10.00,
             'due_date' => $expense->due_date,
             'status' => 'pending',

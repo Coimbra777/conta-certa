@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Expense;
 use App\Models\ExpenseParticipant;
+use App\Support\ChargeParticipantResolver;
 use Illuminate\Support\Facades\DB;
 
 class PublicExpenseCreatorService
@@ -60,7 +61,7 @@ class PublicExpenseCreatorService
 
             $this->expenseService->redistributeChargeAmounts($expense);
 
-            return $expense->load(['charges.expenseParticipant', 'charges.teamMember']);
+            return $expense->load(ChargeParticipantResolver::eagerLoadChargesWithSnapshots());
         });
     }
 }
