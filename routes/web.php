@@ -9,12 +9,6 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 Route::get('/public/expenses/{hash}', function (Request $request, string $hash) {
-    $manage = $request->query('manage');
-    if ($manage !== null && $manage !== '') {
-        // Fragment não vai para referrer nem servidor; a SPA persiste em localStorage e remove da URL.
-        return redirect("/p/{$hash}#manage=".rawurlencode((string) $manage), 302);
-    }
-
     return redirect("/p/{$hash}", 302);
 });
 

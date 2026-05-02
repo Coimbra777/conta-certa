@@ -18,6 +18,13 @@ class PublicExpenseTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function manageHeaders(): array
+    {
+        return [
+            'X-Manage-Token' => 'manage-token-secret',
+        ];
+    }
+
     private function assertProofStoredForExpense(string $path, int $expenseId, string $phone): void
     {
         $this->assertMatchesRegularExpression(
@@ -168,7 +175,7 @@ class PublicExpenseTest extends TestCase
     {
         $this->createExpenseWithCharges();
 
-        $response = $this->getJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'));
+        $response = $this->getJson('/api/v1/public/expenses/test-hash-123', $this->manageHeaders());
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -199,15 +206,13 @@ class PublicExpenseTest extends TestCase
             ->assertJsonCount(2, 'data.expense.participants');
     }
 
-    public function test_manage_token_header_takes_precedence_over_query_string(): void
+    public function test_manage_token_in_query_string_is_ignored(): void
     {
         $this->createExpenseWithCharges();
 
-        $response = $this->getJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('wrong-token'), [
-            'X-Manage-Token' => 'manage-token-secret',
-        ]);
+        $response = $this->getJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'));
 
-        $response->assertOk()->assertJsonPath('data.expense.can_manage', true);
+        $response->assertOk()->assertJsonPath('data.expense.can_manage', false);
     }
 
     public function test_invalid_hash_returns_404(): void
@@ -294,9 +299,8 @@ class PublicExpenseTest extends TestCase
             'proof' => $file,
         ])->assertStatus(201);
 
-        $response = $this->patchJson("/api/v1/public/charges/{$charge2->id}/validate", [
-            'manage_token' => 'manage-token-secret',
-        ]);
+        $response = $this->withHeaders($this->manageHeaders())
+            ->patchJson("/api/v1/public/charges/{$charge2->id}/validate");
 
         $response->assertOk()
             ->assertJsonPath('success', true)
@@ -412,9 +416,9 @@ class PublicExpenseTest extends TestCase
             'phone' => '11900000002',
             'proof' => $file,
         ])->assertStatus(201);
-        $this->patchJson("/api/v1/public/charges/{$charge2->id}/validate", [
-            'manage_token' => 'manage-token-secret',
-        ])->assertOk();
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson("/api/v1/public/charges/{$charge2->id}/validate")
+            ->assertOk();
 
         $response = $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
             'name' => 'Maria Silva',
@@ -443,10 +447,10 @@ class PublicExpenseTest extends TestCase
         $firstProof = PaymentProof::query()->where('charge_id', $charge2->id)->latest()->firstOrFail();
         $firstPath = $firstProof->file_path;
 
-        $this->patchJson("/api/v1/public/charges/{$charge2->id}/reject", [
-            'manage_token' => 'manage-token-secret',
-            'reason' => 'Arquivo ilegível.',
-        ])->assertOk();
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson("/api/v1/public/charges/{$charge2->id}/reject", [
+                'reason' => 'Arquivo ilegível.',
+            ])->assertOk();
 
         Storage::disk('local')->assertExists($firstPath);
 
@@ -490,12 +494,13 @@ class PublicExpenseTest extends TestCase
         $this->createExpenseWithCharges();
         $newDue = now()->addDays(7)->format('Y-m-d');
 
-        $response = $this->patchJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'), [
-            'description' => 'Churrasco atualizado',
-            'amount' => 120,
-            'due_date' => $newDue,
-            'pix_key' => 'pix@novo.com',
-        ]);
+        $response = $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123', [
+                'description' => 'Churrasco atualizado',
+                'amount' => 120,
+                'due_date' => $newDue,
+                'pix_key' => 'pix@novo.com',
+            ]);
 
         $response->assertOk()
             ->assertJsonPath('data.expense.description', 'Churrasco atualizado')
@@ -523,18 +528,20 @@ class PublicExpenseTest extends TestCase
     {
         $this->createExpenseWithCharges();
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'), [
-            'description' => 'Churrasco',
-            'amount' => 150,
-            'due_date' => now()->addDays(3)->format('Y-m-d'),
-            'pix_key' => '11999999999',
-        ]);
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123', [
+                'description' => 'Churrasco',
+                'amount' => 150,
+                'due_date' => now()->addDays(3)->format('Y-m-d'),
+                'pix_key' => '11999999999',
+            ]);
 
-        $response = $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
-            'participants' => [
-                ['name' => 'Zeca Novo', 'phone' => '11977776666'],
-            ],
-        ]);
+        $response = $this->withHeaders($this->manageHeaders())
+            ->postJson('/api/v1/public/expenses/test-hash-123/participants', [
+                'participants' => [
+                    ['name' => 'Zeca Novo', 'phone' => '11977776666'],
+                ],
+            ]);
 
         $response->assertStatus(201);
         $expenseId = Expense::where('public_hash', 'test-hash-123')->value('id');
@@ -548,11 +555,12 @@ class PublicExpenseTest extends TestCase
     {
         [$expense] = $this->createPublicExpenseWithOneParticipant500();
 
-        $this->postJson('/api/v1/public/expenses/test-hash-500/participants?manage='.urlencode('manage-token-secret'), [
-            'participants' => [
-                ['name' => 'Segundo', 'phone' => '11977776666'],
-            ],
-        ])->assertStatus(201);
+        $this->withHeaders($this->manageHeaders())
+            ->postJson('/api/v1/public/expenses/test-hash-500/participants', [
+                'participants' => [
+                    ['name' => 'Segundo', 'phone' => '11977776666'],
+                ],
+            ])->assertStatus(201);
 
         $charges = Charge::where('expense_id', $expense->id)->orderBy('id')->get();
         $this->assertCount(2, $charges);
@@ -566,11 +574,12 @@ class PublicExpenseTest extends TestCase
         $this->createExpenseWithCharges();
         Charge::query()->update(['status' => 'proof_sent']);
 
-        $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
-            'participants' => [
-                ['name' => 'Novo', 'phone' => '11977776666'],
-            ],
-        ])
+        $this->withHeaders($this->manageHeaders())
+            ->postJson('/api/v1/public/expenses/test-hash-123/participants', [
+                'participants' => [
+                    ['name' => 'Novo', 'phone' => '11977776666'],
+                ],
+            ])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Não é possível redistribuir valores pois já existem pagamentos em andamento.');
     }
@@ -578,18 +587,20 @@ class PublicExpenseTest extends TestCase
     public function test_add_public_participants_rejects_duplicate_phone(): void
     {
         $this->createExpenseWithCharges();
-        $this->patchJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'), [
-            'description' => 'Churrasco',
-            'amount' => 150,
-            'due_date' => now()->addDays(3)->format('Y-m-d'),
-            'pix_key' => '11999999999',
-        ]);
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123', [
+                'description' => 'Churrasco',
+                'amount' => 150,
+                'due_date' => now()->addDays(3)->format('Y-m-d'),
+                'pix_key' => '11999999999',
+            ]);
 
-        $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
-            'participants' => [
-                ['name' => 'Duplicado', 'phone' => '11900000002'],
-            ],
-        ])->assertStatus(422);
+        $this->withHeaders($this->manageHeaders())
+            ->postJson('/api/v1/public/expenses/test-hash-123/participants', [
+                'participants' => [
+                    ['name' => 'Duplicado', 'phone' => '11900000002'],
+                ],
+            ])->assertStatus(422);
     }
 
     public function test_close_expense_forbidden_without_manage_token(): void
@@ -607,7 +618,8 @@ class PublicExpenseTest extends TestCase
     {
         $this->createExpenseWithCharges();
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertStatus(422)
             ->assertJsonPath('message', 'So e possivel finalizar quando todos os participantes estiverem com pagamento validado.');
     }
@@ -618,7 +630,8 @@ class PublicExpenseTest extends TestCase
         $charge1->update(['status' => 'validated']);
         $charge2->update(['status' => 'proof_sent']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertStatus(422);
     }
 
@@ -628,7 +641,8 @@ class PublicExpenseTest extends TestCase
         $charge1->update(['status' => 'validated']);
         $charge2->update(['status' => 'rejected']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertStatus(422);
     }
 
@@ -654,7 +668,8 @@ class PublicExpenseTest extends TestCase
         $charge1->update(['status' => 'validated']);
         $charge2->update(['status' => 'validated']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk()
             ->assertJsonPath('data.expense.status', 'closed')
             ->assertJsonPath('data.expense.is_closed', true)
@@ -675,10 +690,12 @@ class PublicExpenseTest extends TestCase
     {
         $this->createExpenseWithCharges();
         Charge::query()->update(['status' => 'validated']);
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk();
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertStatus(422)
             ->assertJsonPath('message', ExpenseClosedPolicy::MESSAGE)
             ->assertJsonPath('code', ExpenseClosedPolicy::CODE);
@@ -690,21 +707,24 @@ class PublicExpenseTest extends TestCase
         [, , $charge2] = $this->createExpenseWithCharges();
         Charge::query()->update(['status' => 'validated']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk();
 
         $msg = ExpenseClosedPolicy::MESSAGE;
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123?manage='.urlencode('manage-token-secret'), [
-            'description' => 'X',
-            'amount' => 99,
-            'due_date' => now()->format('Y-m-d'),
-            'pix_key' => 'k',
-        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123', [
+                'description' => 'X',
+                'amount' => 99,
+                'due_date' => now()->format('Y-m-d'),
+                'pix_key' => 'k',
+            ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
-        $this->postJson('/api/v1/public/expenses/test-hash-123/participants?manage='.urlencode('manage-token-secret'), [
-            'participants' => [['name' => 'Novo', 'phone' => '11911112222']],
-        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
+        $this->withHeaders($this->manageHeaders())
+            ->postJson('/api/v1/public/expenses/test-hash-123/participants', [
+                'participants' => [['name' => 'Novo', 'phone' => '11911112222']],
+            ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $file = ProofUploadFixture::jpegUploadedFile('c.jpg');
         $this->post('/api/v1/public/expenses/test-hash-123/submit-proof', [
@@ -713,14 +733,14 @@ class PublicExpenseTest extends TestCase
             'proof' => $file,
         ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
-        $this->patchJson("/api/v1/public/charges/{$charge2->id}/validate", [
-            'manage_token' => 'manage-token-secret',
-        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson("/api/v1/public/charges/{$charge2->id}/validate")
+            ->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
-        $this->patchJson("/api/v1/public/charges/{$charge2->id}/reject", [
-            'manage_token' => 'manage-token-secret',
-            'reason' => 'Comprovante ilegível.',
-        ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson("/api/v1/public/charges/{$charge2->id}/reject", [
+                'reason' => 'Comprovante ilegível.',
+            ])->assertStatus(422)->assertJsonPath('message', $msg)->assertJsonPath('code', ExpenseClosedPolicy::CODE);
 
         $this->postJson('/api/v1/public/expenses/test-hash-123/validate-participant', [
             'name' => 'Maria Silva',
@@ -733,7 +753,8 @@ class PublicExpenseTest extends TestCase
         $this->createExpenseWithCharges();
         Charge::query()->update(['status' => 'validated']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk();
 
         $this->getJson('/api/v1/public/expenses/test-hash-123')
@@ -816,7 +837,8 @@ class PublicExpenseTest extends TestCase
         $charge1->update(['status' => 'validated']);
         $charge2->update(['status' => 'validated']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk();
 
         $this->get("/api/v1/public/charges/{$charge2->id}/proofs/latest/view", [
@@ -840,7 +862,8 @@ class PublicExpenseTest extends TestCase
         $charge1->update(['status' => 'validated']);
         $charge2->update(['status' => 'validated']);
 
-        $this->patchJson('/api/v1/public/expenses/test-hash-123/close?manage='.urlencode('manage-token-secret'))
+        $this->withHeaders($this->manageHeaders())
+            ->patchJson('/api/v1/public/expenses/test-hash-123/close')
             ->assertOk();
 
         $this->get("/api/v1/public/charges/{$charge2->id}/proof", [

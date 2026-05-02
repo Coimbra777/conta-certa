@@ -11,6 +11,7 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [file, setFile] = useState<File | null>(null);
     const [dragOver, setDragOver] = useState(false);
+    const [fileError, setFileError] = useState<string | null>(null);
 
     const pick = () => inputRef.current?.click();
 
@@ -18,9 +19,11 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
         if (!f) return;
         // Alinhado ao backend: SubmitPublicProofRequest `max:5120` (~5MB em KB).
         if (f.size > 5 * 1024 * 1024) {
-            alert("Arquivo grande demais (máx. 5MB).");
+            setFile(null);
+            setFileError("Arquivo grande demais (máx. 5MB).");
             return;
         }
+        setFileError(null);
         setFile(f);
     };
 
@@ -29,6 +32,14 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
             <div className="rounded-xl border-2 border-dashed border-foreground/35 bg-muted/40 px-4 py-3 text-sm leading-snug text-foreground">
                 {PROOF_UPLOAD_AUTODELETE_NOTICE}
             </div>
+            {fileError ? (
+                <div
+                    role="alert"
+                    className="rounded-xl border-2 border-amber-600/45 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950 dark:border-amber-500/40 dark:bg-amber-950/35 dark:text-amber-50"
+                >
+                    {fileError}
+                </div>
+            ) : null}
             <div
                 onClick={pick}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -55,7 +66,11 @@ export function ProofUpload({ onSubmit, submitting }: Props) {
                         <span className="truncate max-w-[60vw]">{file.name}</span>
                         <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFile(null);
+                                setFileError(null);
+                            }}
                             className="ml-2 border-2 border-foreground rounded-full p-1 bg-card brutal-press brutal-press-sm"
                             aria-label="Remover arquivo"
                         >

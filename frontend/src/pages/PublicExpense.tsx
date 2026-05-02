@@ -90,9 +90,7 @@ export default function PublicExpense({
             }
         }
 
-        const legacyQuery = searchParams.get("manage");
-        if (legacyQuery) {
-            setPublicManageToken(hash, legacyQuery);
+        if (searchParams.has("manage") || searchParams.has("manage_token")) {
             navigate(`/p/${hash}`, { replace: true });
             return;
         }

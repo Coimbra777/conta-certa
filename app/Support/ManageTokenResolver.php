@@ -4,12 +4,7 @@ namespace App\Support;
 
 use Illuminate\Http\Request;
 
-/**
- * Token de gestão de cobrança pública.
- *
- * Prioridade: header X-Manage-Token (recomendado).
- * Fallbacks: body/query manage_token, query manage (?manage=) — legado (URL com token).
- */
+/** Token de gestão de cobrança pública: aceito somente via header `X-Manage-Token`. */
 final class ManageTokenResolver
 {
     public static function resolve(Request $request): ?string
@@ -22,10 +17,6 @@ final class ManageTokenResolver
             return (string) $header;
         }
 
-        $t = $request->input('manage_token')
-            ?? $request->query('manage_token')
-            ?? $request->query('manage');
-
-        return $t !== null && $t !== '' ? (string) $t : null;
+        return null;
     }
 }

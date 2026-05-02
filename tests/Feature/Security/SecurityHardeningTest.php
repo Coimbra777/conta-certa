@@ -15,6 +15,13 @@ class SecurityHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function manageHeaders(string $token = 'good-manage-token'): array
+    {
+        return [
+            'X-Manage-Token' => $token,
+        ];
+    }
+
     public function test_public_close_forbidden_with_invalid_manage_token(): void
     {
         $admin = User::factory()->create();
@@ -50,9 +57,92 @@ class SecurityHardeningTest extends TestCase
             'status' => 'validated',
         ]);
 
-        $this->patchJson('/api/v1/public/expenses/sec-hash-1/close?manage='.urlencode('token-invalido'))
+        $this->withHeaders($this->manageHeaders('token-invalido'))
+            ->patchJson('/api/v1/public/expenses/sec-hash-1/close')
             ->assertForbidden()
             ->assertJsonPath('message', 'Token de gestão inválido.')
+            ->assertJsonPath('code', 'INVALID_MANAGE_TOKEN');
+    }
+
+    public function test_public_close_ignores_manage_token_in_query_string(): void
+    {
+        $admin = User::factory()->create();
+
+        $expense = Expense::create([
+            'created_by' => $admin->id,
+            'description' => 'Teste segurança',
+            'total_amount' => 100.00,
+            'amount_per_participant' => 100.00,
+            'due_date' => now()->addDay()->format('Y-m-d'),
+            'pix_key' => '11999999999',
+            'status' => 'open',
+        ]);
+        $expense->forceFill([
+            'public_hash' => 'sec-hash-query',
+            'manage_token' => 'good-manage-token',
+        ])->save();
+
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Admin',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
+            'amount' => 100.00,
+        ]);
+
+        Charge::create([
+            'expense_id' => $expense->id,
+            'expense_participant_id' => $ep->id,
+            'description' => $expense->description,
+            'amount' => 100.00,
+            'due_date' => $expense->due_date,
+            'status' => 'validated',
+        ]);
+
+        $this->patchJson('/api/v1/public/expenses/sec-hash-query/close?manage='.urlencode('good-manage-token'))
+            ->assertForbidden()
+            ->assertJsonPath('code', 'INVALID_MANAGE_TOKEN');
+    }
+
+    public function test_public_charge_action_ignores_manage_token_in_body(): void
+    {
+        $admin = User::factory()->create();
+
+        $expense = Expense::create([
+            'created_by' => $admin->id,
+            'description' => 'Teste segurança',
+            'total_amount' => 100.00,
+            'amount_per_participant' => 100.00,
+            'due_date' => now()->addDay()->format('Y-m-d'),
+            'pix_key' => '11999999999',
+            'status' => 'open',
+        ]);
+        $expense->forceFill([
+            'public_hash' => 'sec-hash-body',
+            'manage_token' => 'good-manage-token',
+        ])->save();
+
+        $ep = ExpenseParticipant::create([
+            'expense_id' => $expense->id,
+            'name' => 'Admin',
+            'phone' => '11900000001',
+            'phone_normalized' => '11900000001',
+            'amount' => 100.00,
+        ]);
+
+        $charge = Charge::create([
+            'expense_id' => $expense->id,
+            'expense_participant_id' => $ep->id,
+            'description' => $expense->description,
+            'amount' => 100.00,
+            'due_date' => $expense->due_date,
+            'status' => 'proof_sent',
+        ]);
+
+        $this->patchJson("/api/v1/public/charges/{$charge->id}/reject", [
+            'manage_token' => 'good-manage-token',
+            'reason' => 'Teste.',
+        ])->assertForbidden()
             ->assertJsonPath('code', 'INVALID_MANAGE_TOKEN');
     }
 

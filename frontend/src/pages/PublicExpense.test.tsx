@@ -6,6 +6,7 @@ import { api, isPublicExpenseUsingMock } from "@/lib/api/client";
 import type { Expense } from "@/lib/types";
 import { DEMO_PRESENTATION_PUBLIC_HASH } from "@/lib/api/mockStore";
 import { GENERIC_BRAZIL_PHONE_PLACEHOLDER } from "@/lib/inputMasks";
+import { getPublicManageToken } from "@/lib/publicManageToken";
 
 const IDENTIFY_SNIPPET = /Não encontramos esses dados nesta cobrança/i;
 
@@ -123,6 +124,17 @@ describe("PublicExpense", () => {
         await waitFor(() =>
             expect(screen.getByText(/Organizado por Org/i)).toBeInTheDocument(),
         );
+    });
+
+    it("ignores legacy manage token in query string", async () => {
+        const getExpense = vi
+            .spyOn(api, "getPublicExpense")
+            .mockResolvedValue(baseExpense());
+        renderRoute("/p/other-hash?manage=legacy-token");
+        await waitFor(() =>
+            expect(getExpense).toHaveBeenCalledWith("other-hash", null),
+        );
+        expect(getPublicManageToken("other-hash")).toBeNull();
     });
 
     it("does not render the repeated organizer fallback copy", async () => {
